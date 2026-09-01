@@ -38,6 +38,16 @@ class SecurityAndReportTests(unittest.TestCase):
             self.assertEqual(skipped["binary.bin"], "binary")
             self.assertEqual(skipped["link.txt"], "symlink")
 
+    def test_oversized_file_is_excluded_from_inventory(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            limits = SnapshotLimits()
+            (root / "large.txt").write_bytes(b"x" * (limits.max_file_bytes + 1))
+            inventory = build_inventory(local_snapshot(root), limits)
+            skipped = {item.path: item.skip_reason for item in inventory.skipped}
+            self.assertEqual(inventory.coverage, "partial")
+            self.assertEqual(skipped["large.txt"], "file too large")
+
     def test_malformed_utf8_and_search_guards(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
