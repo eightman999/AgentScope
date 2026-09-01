@@ -64,11 +64,7 @@ PATTERNS: dict[str, list[str]] = {
     ],
     "concept_lineage": [
         "karpathy/autoresearch",
-        "karpathy",
         "autoresearch",
-        "derived from",
-        "inspired by",
-        "fork of",
     ],
 }
 
@@ -106,4 +102,3 @@ def detect(
         hits=hits,
         coverage=inventory.coverage,
     )
-

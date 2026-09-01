@@ -62,6 +62,24 @@ class AdversarialPrecisionTests(unittest.TestCase):
         )
         self.assertEqual(agenticity["score"], 2.0)
 
+    def test_generic_derived_word_is_not_known_concept_lineage(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as artifacts_directory:
+            root = Path(directory)
+            (root / "README.md").write_text(
+                "This implementation is derived from a generic prior version.\n",
+                encoding="utf-8",
+            )
+            result = audit_local_directory(
+                root,
+                artifacts=ArtifactStore.create(Path(artifacts_directory), "run"),
+                provider=mock_provider(complete_script()),
+            )
+
+        self.assertEqual(
+            result.report["classifications"]["derived_concept"]["value"],
+            "no",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
