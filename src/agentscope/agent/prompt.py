@@ -36,6 +36,15 @@ def build_model_context(
     ]
     bounded_state = dict(state)
     bounded_state.pop("readable_paths", None)
+    for key, limit in (
+        ("evidence_ids", 80),
+        ("visited_files", 120),
+        ("unknowns", 40),
+    ):
+        values = state.get(key)
+        if isinstance(values, list):
+            bounded_state[key] = values[-limit:]
+            bounded_state[f"{key}_total"] = len(values)
     action_history = state.get("action_history")
     if isinstance(action_history, list):
         bounded_history: list[Any] = []

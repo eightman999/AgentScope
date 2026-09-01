@@ -7,6 +7,7 @@ from pathlib import Path
 
 from agentscope.model.local import LocalLlamaCppProvider
 from agentscope.model.manifest import ModelManifestError, load_manifest
+from agentscope.agent.prompt import build_model_context
 
 
 class ModelRuntimeTests(unittest.TestCase):
@@ -68,6 +69,24 @@ class ModelRuntimeTests(unittest.TestCase):
             self.assertIn("toolcall ::= toolplain", llm_grammar)
             self.assertIn('plainname ::= "\\\"inspect_llm_calls\\\""', llm_grammar)
             self.assertNotIn("inspect_tooling", llm_grammar.split("plainname ::= ", 1)[1].splitlines()[0])
+
+    def test_model_context_bounds_large_internal_state(self) -> None:
+        context = build_model_context(
+            state={
+                "evidence_ids": [f"evidence-{index}" for index in range(1000)],
+                "visited_files": [f"file-{index}.py" for index in range(500)],
+                "unknowns": [f"unknown-{index}" for index in range(100)],
+                "action_history": [],
+            },
+            tool_catalog=[],
+            observations=[],
+            facts={},
+        )
+
+        self.assertLess(len(context.prompt), 20_000)
+        self.assertIn('"evidence_ids_total": 1000', context.prompt)
+        self.assertIn('"evidence-999"', context.prompt)
+        self.assertNotIn('"evidence-0"', context.prompt)
 
 
 def load_manifest_from_dict(raw: dict[str, object]):
