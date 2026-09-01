@@ -58,6 +58,37 @@ class AcquisitionSecurityTests(unittest.TestCase):
         self.assertEqual(calls[0][0:4], ["git", "clone", "-c", "http.followRedirects=false"])
         self.assertEqual(calls[1], ["git", "rev-parse", "HEAD"])
 
+    def test_expected_commit_sha_is_checked_after_clone(self) -> None:
+        def runner(args: list[str], **kwargs: object) -> SimpleNamespace:
+            if args[1] == "clone":
+                Path(args[-1]).mkdir()
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            return SimpleNamespace(returncode=0, stdout="a" * 40, stderr="")
+
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(AcquisitionError, "does not match expected commit"):
+                GitSnapshotSource(runner=runner).acquire(
+                    parse_github_url("https://github.com/fixture/repository"),
+                    Path(directory) / "snapshot",
+                    expected_commit_sha="b" * 40,
+                )
+
+    def test_invalid_expected_commit_sha_is_rejected_before_clone(self) -> None:
+        calls: list[list[str]] = []
+
+        def runner(args: list[str], **kwargs: object) -> SimpleNamespace:
+            calls.append(args)
+            raise AssertionError("runner must not be called")
+
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(AcquisitionError, "expected commit SHA is invalid"):
+                GitSnapshotSource(runner=runner).acquire(
+                    parse_github_url("https://github.com/fixture/repository"),
+                    Path(directory) / "snapshot",
+                    expected_commit_sha="not-a-sha",
+                )
+        self.assertEqual(calls, [])
+
     def test_real_git_clone_does_not_follow_redirect_to_other_host(self) -> None:
         sink = ThreadingHTTPServer(("127.0.0.1", 0), _SinkHandler)
         sink.sink_hits = 0

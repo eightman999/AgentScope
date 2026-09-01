@@ -127,7 +127,11 @@ def _model_provider(resource_root: Path) -> tuple[ModelProvider, str, str | None
     )
 
 
-def _run_id(ref: GitHubRepoRef) -> str:
+def _run_id(ref: GitHubRepoRef, requested: str | None = None) -> str:
+    if requested is not None:
+        if not requested or "/" in requested or "\\" in requested or requested in {".", ".."}:
+            raise ValueError("run_id must be a non-empty relative name")
+        return requested
     return f"{ref.owner}-{ref.repo}-{uuid.uuid4().hex[:8]}"
 
 
@@ -285,13 +289,19 @@ def audit_url(
     *,
     output_base: Path | None = None,
     limits: SnapshotLimits | None = None,
+    run_id: str | None = None,
+    expected_commit_sha: str | None = None,
 ) -> AuditResult:
     ref = parse_github_url(raw_url)
     limits = limits or SnapshotLimits()
     base = output_base or default_artifact_base()
-    artifacts = ArtifactStore.create(base, _run_id(ref))
+    artifacts = ArtifactStore.create(base, _run_id(ref, run_id))
     snapshot_destination = artifacts.root / "snapshot"
-    snapshot = GitSnapshotSource(limits=limits).acquire(ref, snapshot_destination)
+    snapshot = GitSnapshotSource(limits=limits).acquire(
+        ref,
+        snapshot_destination,
+        expected_commit_sha=expected_commit_sha,
+    )
     provider, model_id, model_sha256, engine, runtime_version = _model_provider(_resource_root())
     return audit_snapshot(
         raw_url=raw_url,

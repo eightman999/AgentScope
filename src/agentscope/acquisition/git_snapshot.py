@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 from typing import Callable, Sequence
@@ -91,9 +92,19 @@ class GitSnapshotSource:
         self.limits = limits or SnapshotLimits()
         self.runner = runner
 
-    def acquire(self, ref: GitHubRepoRef, destination: Path) -> Snapshot:
+    def acquire(
+        self,
+        ref: GitHubRepoRef,
+        destination: Path,
+        *,
+        expected_commit_sha: str | None = None,
+    ) -> Snapshot:
         if destination.exists():
             raise AcquisitionError("snapshot destination already exists")
+        if expected_commit_sha is not None and not re.fullmatch(
+            r"[0-9a-fA-F]{40}", expected_commit_sha
+        ):
+            raise AcquisitionError("expected commit SHA is invalid")
         destination.parent.mkdir(parents=True, exist_ok=True)
         # Gitのredirect先hostは、git subprocessの内部で追従されると
         # allowlistを検査できない。redirectを全拒否してfail-closedにする。
@@ -120,6 +131,11 @@ class GitSnapshotSource:
         sha = sha_result.stdout.strip()
         if len(sha) < 7 or any(char not in "0123456789abcdef" for char in sha.lower()):
             raise AcquisitionError("git returned an invalid commit SHA")
+        if expected_commit_sha is not None and sha.lower() != expected_commit_sha.lower():
+            raise AcquisitionError(
+                "snapshot commit does not match expected commit "
+                f"{expected_commit_sha.lower()}; got {sha.lower()}"
+            )
         return Snapshot(root=destination, commit_sha=sha, coverage="partial")
 
 
