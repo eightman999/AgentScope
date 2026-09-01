@@ -1,0 +1,1 @@
+{"scripts":{"test":"python3 -c 'raise SystemExit(99)'"}}

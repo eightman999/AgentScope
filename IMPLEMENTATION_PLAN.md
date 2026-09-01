@@ -2,7 +2,7 @@
 
 - 正典: /Users/eightman/dev/apps/AgentScope/spec.md
 - 運用: spec.mdを唯一の正典とし、このファイルは実行順とチェック項目だけを持つ派生計画とする。
-- 状態: P0主要実装・P1先行精度改善・redirect拒否検証・release bundle / clean environment 検証済み（subprocess監視、捏造model outputのUnknown変換は未完了）
+- 状態: P0主要実装・P1先行精度改善・redirect拒否検証・subprocess監視・release bundle / clean environment 検証済み（捏造model outputのUnknown変換は未完了）
 - 対象: P0 + P1先行のcontrol-flow精度改善
 - 最終確認: 2026-09-01。29テスト、adversarial negative fixture、target実モデルsmoke、self-audit、同一snapshot再現性、package build、bundle hash/署名、clean environment demoを実測。
 
@@ -67,7 +67,7 @@ AgentScopeの公開入力はGitHub公開URL一つだけとする（spec.md §1.2
 
 - [ ] URL正常系、URL拒否、redirect拒否、clone失敗、巨大file、binary、symlinkをunit testする（redirect拒否・clone失敗・binary・symlinkは確認済み、巨大fileは未確認）。
 - [x] fixture snapshotのcommit SHAと指定行が再実行ごとに一致することを確認する。
-- [ ] subprocess監視でpackage manager、test runner、対象scriptが呼ばれないことを確認する（静的実行禁止とallowlistは確認済み）。
+- [x] subprocess監視でpackage manager、test runner、対象scriptが呼ばれないことを確認する（`execution_traps`を実プロセス監視し、Gitの`log`/`remote`以外が呼ばれないことを確認）。
 
 Phase gate:
 
