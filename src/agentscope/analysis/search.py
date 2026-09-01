@@ -8,6 +8,7 @@ from pathlib import Path
 
 from agentscope.acquisition.git_snapshot import Snapshot, SnapshotLimits
 from agentscope.analysis.inventory import Inventory
+from agentscope.domain.evidence import EvidenceError, normalize_relative_path
 
 
 @dataclass(frozen=True)
@@ -34,10 +35,28 @@ def search_code(
     limits = limits or SnapshotLimits()
     if not isinstance(query, str) or not query or len(query) > 500:
         raise ValueError("query must be a non-empty string up to 500 characters")
-    if max_hits < 1 or max_hits > 200:
+    if (
+        not isinstance(max_hits, int)
+        or isinstance(max_hits, bool)
+        or max_hits < 1
+        or max_hits > 200
+    ):
         raise ValueError("max_hits must be between 1 and 200")
-    allowed_paths = set(paths) if paths else set(inventory.paths())
-    pattern = re.compile(query, re.IGNORECASE) if regex else None
+    if not isinstance(regex, bool):
+        raise ValueError("regex must be boolean")
+    if paths is None:
+        allowed_paths = set(inventory.paths())
+    else:
+        if not isinstance(paths, list) or not paths:
+            raise ValueError("paths must be a non-empty array")
+        try:
+            allowed_paths = {normalize_relative_path(path) for path in paths}
+        except EvidenceError as exc:
+            raise ValueError("paths must be relative snapshot paths") from exc
+    try:
+        pattern = re.compile(query, re.IGNORECASE) if regex else None
+    except re.error as exc:
+        raise ValueError(f"invalid search regex: {exc}") from exc
     hits: list[SearchHit] = []
     for record in inventory.files:
         if record.path not in allowed_paths:
@@ -58,4 +77,3 @@ def search_code(
                 if len(hits) >= max_hits:
                     break
     return hits
-

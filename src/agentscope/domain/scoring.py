@@ -129,6 +129,12 @@ def _item(
     )
 
 
+def _complete_coverage(facts: dict[str, Any], extra_key: str | None = None) -> bool:
+    if facts.get("inventory_coverage", "full") != "full":
+        return False
+    return extra_key is None or facts.get(extra_key, "full") == "full"
+
+
 def calculate_scores(
     *,
     graph: FactGraph,
@@ -195,7 +201,7 @@ def calculate_scores(
         agenticity = (6.0, "confirmed", "medium", "Model-controlled dispatch is visible, but feedback adaptation is incomplete.")
     elif has_model:
         agenticity = (2.0, "negative", "medium", "A model call exists, but runtime action control is not traced.")
-    elif facts.get("cap_call_graph"):
+    elif facts.get("cap_call_graph") and _complete_coverage(facts, "trace_coverage"):
         agenticity = (0.0, "negative", "medium", "The bounded call graph found no model-controlled runtime path.")
     else:
         agenticity = (None, "unknown", "unknown", "The runtime call graph was not sufficiently inspected.")
@@ -225,7 +231,7 @@ def calculate_scores(
         dynamic = (7.0, "confirmed", "medium", "Model-controlled dispatch is traced, but observed variation is not established.")
     elif tooling_hits:
         dynamic = (3.0, "negative", "low", "Tooling candidates exist, but dynamic model selection is not traced.")
-    elif facts.get("cap_tooling"):
+    elif facts.get("cap_tooling") and _complete_coverage(facts):
         dynamic = (0.0, "negative", "medium", "The bounded tooling scan found no tool-selection surface.")
     else:
         dynamic = (None, "unknown", "unknown", "Tool-selection coverage is incomplete.")
@@ -254,7 +260,7 @@ def calculate_scores(
         feedback = (9.0, "confirmed", "high", "An observation is connected to a replanning edge.")
     elif has_observation:
         feedback = (3.0, "negative", "medium", "An observation candidate exists without a traced replanning edge.")
-    elif facts.get("cap_call_graph"):
+    elif facts.get("cap_call_graph") and _complete_coverage(facts, "trace_coverage"):
         feedback = (0.0, "negative", "medium", "No observation-to-replanning path was found.")
     else:
         feedback = (None, "unknown", "unknown", "Feedback coverage is incomplete.")
@@ -286,7 +292,7 @@ def calculate_scores(
         goal = (9.0, "confirmed", "high", "Goal, loop, termination, and replanning candidates are connected in the trace.")
     elif has_loop and has_termination:
         goal = (5.0, "confirmed", "medium", "Loop and termination are visible, but explicit goal-directed adaptation is incomplete.")
-    elif facts.get("cap_call_graph"):
+    elif facts.get("cap_call_graph") and _complete_coverage(facts, "trace_coverage"):
         goal = (0.0, "negative", "medium", "No complete goal-directed loop was found.")
     else:
         goal = (None, "unknown", "unknown", "Goal-loop coverage is incomplete.")
@@ -320,7 +326,7 @@ def calculate_scores(
             verification_score = (7.0, "confirmed", "medium", "Tests plus one additional verification signal are present.")
         elif test_count or ci_count or assertions:
             verification_score = (4.0, "confirmed", "low", "A limited verification signal is present.")
-        elif facts.get("cap_verification"):
+        elif facts.get("cap_verification") and _complete_coverage(facts):
             verification_score = (0.0, "negative", "medium", "No test, CI, or assertion candidate was found.")
         else:
             verification_score = (None, "unknown", "unknown", "Verification coverage is incomplete.")
@@ -349,7 +355,7 @@ def calculate_scores(
         agent_tooling = (8.0, "confirmed", "high", "Tool candidates and a model-controlled dispatcher are both traced.")
     elif tooling_hits:
         agent_tooling = (4.0, "confirmed", "low", "A tool surface exists, but agent-controlled dispatch is not established.")
-    elif facts.get("cap_tooling"):
+    elif facts.get("cap_tooling") and _complete_coverage(facts):
         agent_tooling = (0.0, "negative", "medium", "No runtime tool surface was found in the bounded scan.")
     else:
         agent_tooling = (None, "unknown", "unknown", "Agent tooling coverage is incomplete.")

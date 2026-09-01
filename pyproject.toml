@@ -18,8 +18,17 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.setuptools.package-data]
-agentscope = ["resources/*.json", "resources/*.gbnf"]
+[tool.setuptools.data-files]
+"share/agentscope/resources" = [
+  "resources/action-schema.json",
+  "resources/action-grammar.gbnf",
+  "resources/evidence-schema.json",
+  "resources/fact-graph-schema.json",
+  "resources/finish-action-grammar.gbnf",
+  "resources/model-manifest.json",
+  "resources/report-schema.json",
+  "resources/tool-action-grammar.gbnf",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

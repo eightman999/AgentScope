@@ -4,11 +4,21 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import hashlib
+import re
 from typing import Iterable
 
 
 class EvidenceError(ValueError):
     """Evidenceの構造または参照が不正。"""
+
+
+EVIDENCE_SOURCE_KINDS = {
+    "repository",
+    "git",
+    "github_api",
+    "derived_manifest",
+}
+EVIDENCE_CONFIDENCES = {"high", "medium", "low", "unknown"}
 
 
 def normalize_relative_path(value: str) -> str:
@@ -64,11 +74,26 @@ class Evidence:
         confidence: str = "medium",
     ) -> "Evidence":
         normalized = normalize_relative_path(file)
-        if start_line < 1 or end_line < start_line:
+        if (
+            not isinstance(start_line, int)
+            or isinstance(start_line, bool)
+            or not isinstance(end_line, int)
+            or isinstance(end_line, bool)
+            or start_line < 1
+            or end_line < start_line
+        ):
             raise EvidenceError("invalid line range")
-        if not claim_key or not reason:
+        if not isinstance(evidence_id, str) or not re.fullmatch(r"e[1-9][0-9]*", evidence_id):
+            raise EvidenceError("invalid evidence id")
+        if not isinstance(source_kind, str) or source_kind not in EVIDENCE_SOURCE_KINDS:
+            raise EvidenceError("invalid evidence source kind")
+        if not isinstance(excerpt, str):
+            raise EvidenceError("excerpt must be a string")
+        if not isinstance(commit_sha, str) or not commit_sha:
+            raise EvidenceError("commit_sha is required")
+        if not isinstance(claim_key, str) or not claim_key or not isinstance(reason, str) or not reason:
             raise EvidenceError("claim_key and reason are required")
-        if confidence not in {"high", "medium", "low", "unknown"}:
+        if confidence not in EVIDENCE_CONFIDENCES:
             raise EvidenceError("invalid evidence confidence")
         return cls(
             id=evidence_id,
@@ -157,4 +182,3 @@ class EvidenceLedger:
             for item in self._items.values()
             if item.claim_key.startswith(prefix_tuple)
         ]
-

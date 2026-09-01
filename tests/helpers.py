@@ -85,10 +85,11 @@ def metadata_source(*, fork: bool, parent: str | None = None) -> GitHubMetadataS
     return GitHubMetadataSource(opener=lambda request, timeout: FakeResponse(payload))
 
 
-def provenance_runner(*, ai_signal: bool = False):
+def provenance_runner(*, ai_signal: bool = False, weak_ai_signal: bool = False):
     def run(args: list[str], *, cwd: Path, timeout: int) -> Any:
         if args[1] == "log":
-            body = "commit=fixture\nAuthor=Fixture <fixture@example.com>\nCommitter=Fixture <fixture@example.com>\n"
+            author = "Claude" if weak_ai_signal else "Fixture"
+            body = f"commit=fixture\nAuthor={author} <fixture@example.com>\nCommitter=Fixture <fixture@example.com>\n"
             if ai_signal:
                 body += "Co-authored-by: Claude <noreply@anthropic.com>\n"
             body += "---\n"

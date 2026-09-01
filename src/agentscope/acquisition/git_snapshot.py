@@ -33,10 +33,15 @@ class SnapshotLimits:
 
 
 def _safe_env() -> dict[str, str]:
-    env = os.environ.copy()
+    env = {
+        key: os.environ[key]
+        for key in ("PATH", "LANG", "LC_ALL")
+        if key in os.environ
+    }
     env["GIT_TERMINAL_PROMPT"] = "0"
     env["GIT_OPTIONAL_LOCKS"] = "0"
     env["GIT_CONFIG_NOSYSTEM"] = "1"
+    env["GIT_CONFIG_GLOBAL"] = os.devnull
     return env
 
 
@@ -120,4 +125,3 @@ def cleanup_snapshot(snapshot: Snapshot) -> None:
 
     if snapshot.root.name == "snapshot" and snapshot.root.exists():
         shutil.rmtree(snapshot.root)
-

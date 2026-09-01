@@ -6,7 +6,13 @@ import re
 from pathlib import Path
 from typing import Any
 
-from agentscope.domain.evidence import Evidence, EvidenceError, normalize_relative_path
+from agentscope.domain.evidence import (
+    EVIDENCE_CONFIDENCES,
+    EVIDENCE_SOURCE_KINDS,
+    Evidence,
+    EvidenceError,
+    normalize_relative_path,
+)
 
 
 class ReportLintError(ValueError):
@@ -29,7 +35,7 @@ REQUIRED_CLASSIFICATION_KEYS = {
     "formal_github_fork",
     "derived_concept",
 }
-_INTERNAL_MARKERS = re.compile(r"ROOT_COUNTRY|FROM\(.*未確定|<UNRESOLVED>|\bTODO\b")
+_INTERNAL_MARKERS = re.compile(r"ROOT_COUNTRY|FROM\(.*未確定|<UNRESOLVED>|\bUNRESOLVED\b")
 
 
 def _resolve_evidence_path(
@@ -38,7 +44,10 @@ def _resolve_evidence_path(
     snapshot_root: Path,
     artifact_root: Path,
 ) -> Path:
-    normalized = normalize_relative_path(file)
+    try:
+        normalized = normalize_relative_path(file)
+    except EvidenceError as exc:
+        raise ReportLintError(f"invalid evidence path: {file}") from exc
     base = artifact_root if normalized.startswith("provenance/") else snapshot_root
     candidate = (base / normalized).resolve()
     base_resolved = base.resolve()
@@ -72,6 +81,20 @@ def _check_evidence(
         raise ReportLintError(f"evidence keys do not match: {item.get('id')}")
     if item["commit_sha"] != commit_sha:
         raise ReportLintError(f"evidence commit mismatch: {item['id']}")
+    if not isinstance(item["id"], str) or not re.fullmatch(r"e[1-9][0-9]*", item["id"]):
+        raise ReportLintError(f"invalid evidence id: {item['id']}")
+    if item["source_kind"] not in EVIDENCE_SOURCE_KINDS:
+        raise ReportLintError(f"invalid evidence source kind: {item['id']}")
+    if (
+        not isinstance(item["claim_key"], str)
+        or not item["claim_key"]
+        or not isinstance(item["file"], str)
+        or not isinstance(item["excerpt"], str)
+        or not isinstance(item["reason"], str)
+        or not item["reason"]
+        or item["confidence"] not in EVIDENCE_CONFIDENCES
+    ):
+        raise ReportLintError(f"invalid evidence field: {item['id']}")
     if not isinstance(item["start_line"], int) or not isinstance(item["end_line"], int):
         raise ReportLintError(f"invalid line type: {item['id']}")
     if item["start_line"] < 1 or item["end_line"] < item["start_line"]:
@@ -79,7 +102,11 @@ def _check_evidence(
     expected_ref = f"{item['file']}:{item['start_line']}"
     if item["display_ref"] != expected_ref:
         raise ReportLintError(f"invalid display ref: {item['id']}")
-    if Evidence.hash_excerpt(item["excerpt"]) != item["excerpt_sha256"]:
+    if (
+        not isinstance(item["excerpt_sha256"], str)
+        or not re.fullmatch(r"[0-9a-f]{64}", item["excerpt_sha256"])
+        or Evidence.hash_excerpt(item["excerpt"]) != item["excerpt_sha256"]
+    ):
         raise ReportLintError(f"excerpt hash mismatch: {item['id']}")
     path = _resolve_evidence_path(
         item["file"],
@@ -110,10 +137,22 @@ def lint_report(
     for key in ("schema_version", "subject", "runtime", "scores", "classifications", "evidence", "unknowns", "action_trace_ref"):
         if key not in report:
             raise ReportLintError(f"missing report key: {key}")
+    if report["schema_version"] != "0.1":
+        raise ReportLintError("unsupported report schema_version")
     subject = report["subject"]
+    if not isinstance(subject, dict):
+        raise ReportLintError("subject must be an object")
     commit_sha = subject.get("commit_sha") if isinstance(subject, dict) else None
     if not isinstance(commit_sha, str) or not commit_sha:
         raise ReportLintError("subject.commit_sha is required")
+    if not isinstance(report["runtime"], dict):
+        raise ReportLintError("runtime must be an object")
+    if not isinstance(report["action_trace_ref"], str) or not report["action_trace_ref"]:
+        raise ReportLintError("action_trace_ref is required")
+    if not isinstance(report["unknowns"], list) or not all(
+        isinstance(item, str) for item in report["unknowns"]
+    ):
+        raise ReportLintError("unknowns must be an array of strings")
     evidence_items = report["evidence"]
     if not isinstance(evidence_items, list):
         raise ReportLintError("evidence must be an array")
@@ -134,12 +173,18 @@ def lint_report(
     scores = report["scores"]
     if not isinstance(scores, list):
         raise ReportLintError("scores must be an array")
-    score_keys = {item.get("key") for item in scores if isinstance(item, dict)}
+    score_keys = {
+        item.get("key")
+        for item in scores
+        if isinstance(item, dict) and isinstance(item.get("key"), str)
+    }
     if score_keys != REQUIRED_SCORE_KEYS:
         raise ReportLintError(f"score keys mismatch: {score_keys}")
     for item in scores:
         if not isinstance(item, dict):
             raise ReportLintError("score item must be an object")
+        if not isinstance(item.get("key"), str) or not isinstance(item.get("label"), str):
+            raise ReportLintError("score key and label are required")
         score = item.get("score")
         if score is not None and (
             not isinstance(score, (int, float))
@@ -150,7 +195,9 @@ def lint_report(
         if item.get("state") not in {"confirmed", "negative", "unknown"}:
             raise ReportLintError(f"invalid score state: {item.get('key')}")
         ids = item.get("evidence_ids")
-        if not isinstance(ids, list) or not ids:
+        if not isinstance(ids, list) or not ids or not all(
+            isinstance(evidence_id, str) for evidence_id in ids
+        ):
             raise ReportLintError(f"score has no evidence: {item.get('key')}")
         if any(evidence_id not in evidence_by_id for evidence_id in ids):
             raise ReportLintError(f"score has unknown evidence: {item.get('key')}")
@@ -165,8 +212,14 @@ def lint_report(
     for key, item in classifications.items():
         if not isinstance(item, dict) or item.get("value") not in {"yes", "no", "unknown"}:
             raise ReportLintError(f"invalid classification: {key}")
+        if item.get("confidence") not in EVIDENCE_CONFIDENCES:
+            raise ReportLintError(f"invalid classification confidence: {key}")
+        if not isinstance(item.get("rationale_ja"), str) or not item["rationale_ja"]:
+            raise ReportLintError(f"classification rationale is required: {key}")
         ids = item.get("evidence_ids")
-        if not isinstance(ids, list) or not ids:
+        if not isinstance(ids, list) or not ids or not all(
+            isinstance(evidence_id, str) for evidence_id in ids
+        ):
             raise ReportLintError(f"classification has no evidence: {key}")
         if any(evidence_id not in evidence_by_id for evidence_id in ids):
             raise ReportLintError(f"classification has unknown evidence: {key}")

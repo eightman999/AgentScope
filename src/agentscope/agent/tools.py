@@ -40,12 +40,16 @@ class ToolSpec:
     side_effects: str
     handler: Callable[[dict[str, Any]], ToolResult]
     argument_validator: Callable[[dict[str, Any]], None]
+    input_schema: dict[str, Any] = field(default_factory=dict)
+    evidence_kinds: tuple[str, ...] = ()
 
-    def to_dict(self) -> dict[str, str]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "description": self.description,
             "side_effects": self.side_effects,
+            "input_schema": self.input_schema,
+            "evidence_kinds": list(self.evidence_kinds),
         }
 
 
@@ -58,7 +62,7 @@ class ToolRegistry:
             raise ValueError(f"duplicate tool: {spec.name}")
         self._tools[spec.name] = spec
 
-    def catalog(self) -> list[dict[str, str]]:
+    def catalog(self) -> list[dict[str, Any]]:
         return [self._tools[name].to_dict() for name in sorted(self._tools)]
 
     def has(self, name: str) -> bool:
@@ -104,6 +108,20 @@ def _read_args(arguments: dict[str, Any]) -> None:
             not isinstance(arguments[key], int) or isinstance(arguments[key], bool)
         ):
             raise ToolValidationError(f"{key} must be an integer")
+        if key in arguments and arguments[key] < 1:
+            raise ToolValidationError(f"{key} must be >= 1")
+    if (
+        "start_line" in arguments
+        and "end_line" in arguments
+        and arguments["end_line"] < arguments["start_line"]
+    ):
+        raise ToolValidationError("end_line must be >= start_line")
+    if (
+        "start_line" in arguments
+        and "end_line" in arguments
+        and arguments["end_line"] - arguments["start_line"] + 1 > 200
+    ):
+        raise ToolValidationError("read range is too large")
 
 
 def _search_args(arguments: dict[str, Any]) -> None:
@@ -122,6 +140,10 @@ def _search_args(arguments: dict[str, Any]) -> None:
         or isinstance(arguments["max_hits"], bool)
     ):
         raise ToolValidationError("max_hits must be integer")
+    if "max_hits" in arguments and not 1 <= arguments["max_hits"] <= 200:
+        raise ToolValidationError("max_hits must be between 1 and 200")
+    if "paths" in arguments and not arguments["paths"]:
+        raise ToolValidationError("paths must not be empty")
 
 
 def _trace_args(arguments: dict[str, Any]) -> None:
@@ -129,6 +151,8 @@ def _trace_args(arguments: dict[str, Any]) -> None:
         raise ToolValidationError("trace_call_graph only accepts target_path")
     if "target_path" in arguments and not isinstance(arguments["target_path"], str):
         raise ToolValidationError("target_path must be a string")
+    if "target_path" in arguments and not arguments["target_path"]:
+        raise ToolValidationError("target_path must not be empty")
 
 
 def _finish_args(arguments: dict[str, Any]) -> None:
@@ -144,6 +168,51 @@ def _finish_args(arguments: dict[str, Any]) -> None:
     missing = arguments["missing_unknowns"]
     if not isinstance(missing, list) or not all(isinstance(item, str) for item in missing):
         raise ToolValidationError("missing_unknowns must be an array of strings")
+
+
+_NO_ARGS_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {},
+}
+_READ_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["path"],
+    "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "start_line": {"type": "integer", "minimum": 1},
+        "end_line": {"type": "integer", "minimum": 1},
+    },
+}
+_SEARCH_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["query"],
+    "properties": {
+        "query": {"type": "string", "minLength": 1, "maxLength": 500},
+        "paths": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "regex": {"type": "boolean"},
+        "max_hits": {"type": "integer", "minimum": 1, "maximum": 200},
+    },
+}
+_TRACE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "target_path": {"type": "string", "minLength": 1},
+    },
+}
+_FINISH_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["decision", "reason", "missing_unknowns"],
+    "properties": {
+        "decision": {"enum": ["ENOUGH_EVIDENCE", "INSUFFICIENT_EVIDENCE"]},
+        "reason": {"type": "string", "minLength": 1},
+        "missing_unknowns": {"type": "array", "items": {"type": "string"}},
+    },
+}
 
 
 def _coverage_evidence(
@@ -499,6 +568,8 @@ def create_tool_registry(context: AuditToolContext) -> ToolRegistry:
             "read-only",
             lambda args: _list_repo_tree(context, args),
             _no_args,
+            _NO_ARGS_SCHEMA,
+            ("derived_manifest",),
         )
     )
     registry.register(
@@ -508,6 +579,8 @@ def create_tool_registry(context: AuditToolContext) -> ToolRegistry:
             "read-only",
             lambda args: _read_file(context, args),
             _read_args,
+            _READ_SCHEMA,
+            ("repository",),
         )
     )
     registry.register(
@@ -517,6 +590,8 @@ def create_tool_registry(context: AuditToolContext) -> ToolRegistry:
             "read-only",
             lambda args: _search(context, args),
             _search_args,
+            _SEARCH_SCHEMA,
+            ("repository", "derived_manifest"),
         )
     )
     registry.register(
@@ -526,6 +601,8 @@ def create_tool_registry(context: AuditToolContext) -> ToolRegistry:
             "read-only",
             lambda args: _inspect_llm_calls(context, args),
             _no_args,
+            _NO_ARGS_SCHEMA,
+            ("repository", "derived_manifest"),
         )
     )
     registry.register(
@@ -535,6 +612,8 @@ def create_tool_registry(context: AuditToolContext) -> ToolRegistry:
             "read-only",
             lambda args: _inspect_tooling(context, args),
             _no_args,
+            _NO_ARGS_SCHEMA,
+            ("repository", "derived_manifest"),
         )
     )
     registry.register(
@@ -544,6 +623,8 @@ def create_tool_registry(context: AuditToolContext) -> ToolRegistry:
             "read-only",
             lambda args: _trace(context, args),
             _trace_args,
+            _TRACE_SCHEMA,
+            ("repository", "derived_manifest"),
         )
     )
     registry.register(
@@ -553,6 +634,8 @@ def create_tool_registry(context: AuditToolContext) -> ToolRegistry:
             "read-only",
             lambda args: _inspect_git(context, args),
             _no_args,
+            _NO_ARGS_SCHEMA,
+            ("git", "derived_manifest"),
         )
     )
     registry.register(
@@ -562,6 +645,8 @@ def create_tool_registry(context: AuditToolContext) -> ToolRegistry:
             "read-only",
             lambda args: _inspect_metadata(context, args),
             _no_args,
+            _NO_ARGS_SCHEMA,
+            ("github_api", "derived_manifest"),
         )
     )
     registry.register(
@@ -571,6 +656,8 @@ def create_tool_registry(context: AuditToolContext) -> ToolRegistry:
             "read-only",
             lambda args: _inspect_tests(context, args),
             _no_args,
+            _NO_ARGS_SCHEMA,
+            ("repository", "derived_manifest"),
         )
     )
     registry.register(
@@ -580,6 +667,8 @@ def create_tool_registry(context: AuditToolContext) -> ToolRegistry:
             "read-only",
             lambda args: _inspect_concept(context, args),
             _no_args,
+            _NO_ARGS_SCHEMA,
+            ("repository", "derived_manifest"),
         )
     )
     registry.register(
@@ -589,6 +678,8 @@ def create_tool_registry(context: AuditToolContext) -> ToolRegistry:
             "controller-only",
             lambda args: _finish_audit(context, args),
             _finish_args,
+            _FINISH_SCHEMA,
+            (),
         )
     )
     return registry

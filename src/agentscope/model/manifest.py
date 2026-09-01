@@ -32,6 +32,8 @@ class ModelManifest:
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "ModelManifest":
+        if not isinstance(raw, dict):
+            raise ModelManifestError("model manifest must be an object")
         if raw.get("schema_version") != "0.1":
             raise ModelManifestError("unsupported model manifest schema_version")
         required = {
@@ -61,6 +63,8 @@ class ModelManifest:
         if (
             artifact_path.is_absolute()
             or artifact_path.name != raw["artifact"]
+            or "/" in raw["artifact"]
+            or "\\" in raw["artifact"]
             or raw["artifact"] in {".", ".."}
         ):
             raise ModelManifestError("artifact must be a relative file name")

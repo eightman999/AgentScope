@@ -33,14 +33,21 @@ def parse_github_url(raw_url: str) -> GitHubRepoRef:
     if not isinstance(raw_url, str) or not raw_url.strip():
         raise GitHubUrlError("GitHub repository URL is required")
     value = raw_url.strip()
-    parsed = urlsplit(value)
+    try:
+        parsed = urlsplit(value)
+        username = parsed.username
+        password = parsed.password
+        port = parsed.port
+        hostname = parsed.hostname
+    except ValueError as exc:
+        raise GitHubUrlError("GitHub URL has invalid authority syntax") from exc
     if parsed.scheme.lower() != "https":
         raise GitHubUrlError("only https GitHub URLs are accepted")
-    if parsed.username or parsed.password or parsed.port:
+    if username or password or port:
         raise GitHubUrlError("credentials and custom ports are not accepted")
     if parsed.query or parsed.fragment:
         raise GitHubUrlError("query strings and fragments are not accepted")
-    if (parsed.hostname or "").lower() != "github.com":
+    if (hostname or "").lower() != "github.com":
         raise GitHubUrlError("only github.com is accepted")
 
     parts = [part for part in parsed.path.split("/") if part]

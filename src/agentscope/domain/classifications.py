@@ -76,14 +76,21 @@ def calculate_classifications(
         ledger,
         artifacts,
         commit_sha,
-        ("provenance.ai_assisted", "provenance.ai_assisted.coverage"),
+        (
+            "provenance.ai_assisted",
+            "provenance.ai_assisted.weak",
+            "provenance.ai_assisted.coverage",
+        ),
         key="ai_assisted_development",
         message="Bounded Git provenance was inspected but no explicit AI assistance signal was available.",
     )
     if ai_signals:
         ai = ("yes", "high", "Git provenance contains an explicit AI assistance signal.")
     elif isinstance(provenance, ProvenanceFacts) and provenance.available:
-        ai = ("unknown", "low", "No explicit AI signal was found in the bounded Git history; contributor names alone are not proof.")
+        if provenance.weak_ai_signals:
+            ai = ("unknown", "low", "An AI-related contributor or commit name is only a weak signal; explicit AI assistance was not established.")
+        else:
+            ai = ("unknown", "low", "No explicit AI signal was found in the bounded Git history; contributor names alone are not proof.")
     else:
         ai = ("unknown", "unknown", "Git provenance was unavailable or incomplete.")
     result.append(Classification("ai_assisted_development", ai[0], ai[1], ai[2], ai_ids))
@@ -189,4 +196,3 @@ def calculate_classifications(
         )
     )
     return result
-

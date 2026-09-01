@@ -121,6 +121,18 @@ def build_inventory(snapshot: Snapshot, limits: SnapshotLimits | None = None) ->
                     FileRecord(relative, stat.st_size, language_for(relative), False, "total size limit")
                 )
                 continue
+            try:
+                path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                skipped.append(
+                    FileRecord(relative, stat.st_size, language_for(relative), False, "malformed utf-8")
+                )
+                continue
+            except OSError:
+                skipped.append(
+                    FileRecord(relative, stat.st_size, language_for(relative), False, "unreadable")
+                )
+                continue
             if _is_binary(path):
                 skipped.append(
                     FileRecord(relative, stat.st_size, language_for(relative), False, "binary")
@@ -130,4 +142,3 @@ def build_inventory(snapshot: Snapshot, limits: SnapshotLimits | None = None) ->
             total_bytes += stat.st_size
     coverage = "full" if not skipped else "partial"
     return Inventory(files=files, skipped=skipped, total_bytes=total_bytes, coverage=coverage)
-

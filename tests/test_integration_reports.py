@@ -5,6 +5,8 @@ import unittest
 from pathlib import Path
 
 from agentscope.acquisition.artifacts import ArtifactStore
+from agentscope.acquisition.github_metadata import GitHubMetadataSource
+from agentscope.acquisition.github_url import parse_github_url
 from agentscope.application import audit_local_directory
 
 from tests.helpers import complete_script, fixture, metadata_source, mock_provider, provenance_runner
@@ -48,6 +50,21 @@ class IntegrationReportTests(unittest.TestCase):
         self.assertEqual(result.report["classifications"]["agentic_runtime"]["value"], "no")
         self.assertEqual(result.report["classifications"]["formal_github_fork"]["value"], "no")
 
+    def test_ai_named_contributor_is_weak_not_explicit_assistance(self) -> None:
+        result = self._audit(
+            "ai_assisted_non_agent",
+            metadata=metadata_source(fork=False),
+            git_runner=provenance_runner(weak_ai_signal=True),
+        )
+        self.assertEqual(
+            result.report["classifications"]["ai_assisted_development"]["value"],
+            "unknown",
+        )
+        self.assertIn(
+            "weak signal",
+            result.report["classifications"]["ai_assisted_development"]["rationale_ja"],
+        )
+
     def test_mcp_only_is_not_agentic_runtime(self) -> None:
         result = self._audit("mcp_only", metadata=metadata_source(fork=False))
         self.assertEqual(result.report["classifications"]["mcp_tooling"]["value"], "yes")
@@ -63,10 +80,51 @@ class IntegrationReportTests(unittest.TestCase):
         self.assertEqual(result.report["classifications"]["derived_concept"]["value"], "yes")
         self.assertEqual(result.report["classifications"]["derived_concept"]["label"], "Karpathy/autoresearch")
 
+        fork_result = self._audit(
+            "fork_derived",
+            metadata=metadata_source(
+                fork=True,
+                parent="karpathy/autoresearch",
+            ),
+            git_runner=provenance_runner(),
+        )
+        self.assertEqual(
+            fork_result.report["classifications"]["formal_github_fork"]["value"],
+            "yes",
+        )
+        self.assertEqual(
+            fork_result.report["classifications"]["derived_concept"]["value"],
+            "yes",
+        )
+
     def test_api_unavailable_is_unknown_not_no(self) -> None:
         result = self._audit("insufficient")
         self.assertEqual(result.report["classifications"]["formal_github_fork"]["value"], "unknown")
         self.assertEqual(result.report["classifications"]["ai_assisted_development"]["value"], "unknown")
+
+    def test_metadata_http_error_is_materialized_without_false_defaults(self) -> None:
+        class ErrorResponse:
+            status = 429
+
+            def read(self):
+                return b'{"message":"rate limited"}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return None
+
+        with tempfile.TemporaryDirectory() as directory:
+            artifacts = ArtifactStore.create(Path(directory), "run")
+            result = GitHubMetadataSource(
+                opener=lambda request, timeout: ErrorResponse()
+            ).fetch_repository(parse_github_url("https://github.com/fixture/repository"), artifacts)
+            self.assertFalse(result.available)
+            self.assertEqual(result.status, 429)
+            error_artifact = artifacts.path("provenance/github-repository-error.txt")
+            self.assertIn("http_status=429", error_artifact.read_text(encoding="utf-8"))
+            self.assertIsNone(result.data)
 
 
 if __name__ == "__main__":

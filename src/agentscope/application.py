@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
+import sys
 import uuid
 from typing import Any, Callable
 
@@ -59,10 +60,15 @@ def _optional_sha256(path: Path) -> str | None:
 
 def _resource_root() -> Path:
     source_root = Path(__file__).resolve().parents[2]
-    candidate = source_root / "resources"
-    if candidate.is_dir():
-        return candidate
-    return Path.cwd() / "resources"
+    candidates = (
+        source_root / "resources",
+        Path(sys.prefix) / "share" / "agentscope" / "resources",
+        Path.cwd() / "resources",
+    )
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    return candidates[0]
 
 
 def _model_provider(resource_root: Path) -> tuple[ModelProvider, str, str | None, str]:

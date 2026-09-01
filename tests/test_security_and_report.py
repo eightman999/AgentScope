@@ -8,6 +8,7 @@ from agentscope.acquisition.artifacts import ArtifactStore
 from agentscope.acquisition.git_snapshot import SnapshotLimits, local_snapshot
 from agentscope.analysis.inventory import build_inventory
 from agentscope.analysis.line_reader import ReadFileError, read_lines
+from agentscope.analysis.search import search_code
 from agentscope.application import audit_local_directory
 from agentscope.model.mock import MockModelProvider
 from agentscope.report.lint import ReportLintError, lint_report
@@ -36,6 +37,19 @@ class SecurityAndReportTests(unittest.TestCase):
             self.assertEqual(inventory.coverage, "partial")
             self.assertEqual(skipped["binary.bin"], "binary")
             self.assertEqual(skipped["link.txt"], "symlink")
+
+    def test_malformed_utf8_and_search_guards(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "broken.py").write_bytes(b"valid\n\xff\n")
+            snapshot = local_snapshot(root)
+            inventory = build_inventory(snapshot, SnapshotLimits())
+            self.assertEqual(inventory.coverage, "partial")
+            self.assertEqual(inventory.skipped[0].skip_reason, "malformed utf-8")
+            with self.assertRaises(ValueError):
+                search_code(snapshot, inventory, "x", paths=["../broken.py"])
+            with self.assertRaises(ValueError):
+                search_code(snapshot, inventory, "[", regex=True)
 
     def test_report_lint_fails_closed_on_line_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -23,14 +23,31 @@ class MetadataResult:
     error: str | None = None
 
 
+def _parent_full_name(parent: object) -> object:
+    if isinstance(parent, dict):
+        return parent.get("full_name")
+    return None
+
+
 class GitHubMetadataSource:
     def __init__(
         self,
         *,
         timeout: int = 20,
+        max_response_bytes: int = 2_000_000,
         opener: Callable[..., Any] | None = None,
     ) -> None:
+        if (
+            not isinstance(timeout, int)
+            or isinstance(timeout, bool)
+            or timeout < 1
+            or not isinstance(max_response_bytes, int)
+            or isinstance(max_response_bytes, bool)
+            or max_response_bytes < 1
+        ):
+            raise ValueError("metadata timeout and response limit must be positive integers")
         self.timeout = timeout
+        self.max_response_bytes = max_response_bytes
         self.opener = opener or urlopen
 
     def fetch_repository(
@@ -53,6 +70,10 @@ class GitHubMetadataSource:
             with self.opener(request, timeout=self.timeout) as response:
                 status = getattr(response, "status", 200)
                 body = response.read()
+            if not isinstance(status, int) or not 200 <= status < 300:
+                raise ValueError(f"GitHub metadata returned HTTP status {status}")
+            if not isinstance(body, bytes) or len(body) > self.max_response_bytes:
+                raise ValueError("GitHub metadata response exceeds the read limit")
             body_sha256 = hashlib.sha256(body).hexdigest()
             raw = body.decode("utf-8")
             parsed = json.loads(raw)
@@ -66,7 +87,7 @@ class GitHubMetadataSource:
                 f"retrieved_at={retrieved_at}",
                 f"body_sha256={body_sha256}",
                 f"fork={parsed.get('fork')!r}",
-                f"parent_full_name={((parsed.get('parent') or {}).get('full_name'))!r}",
+                f"parent_full_name={_parent_full_name(parsed.get('parent'))!r}",
                 f"html_url={parsed.get('html_url')!r}",
             ]
             artifacts.write_text(

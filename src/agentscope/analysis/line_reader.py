@@ -49,8 +49,12 @@ def read_lines(
     limits: SnapshotLimits | None = None,
 ) -> LineExcerpt:
     limits = limits or SnapshotLimits()
-    if start_line < 1:
+    if not isinstance(start_line, int) or isinstance(start_line, bool) or start_line < 1:
         raise ReadFileError("start_line must be >= 1")
+    if end_line is not None and (
+        not isinstance(end_line, int) or isinstance(end_line, bool)
+    ):
+        raise ReadFileError("end_line must be an integer")
     normalized, path = _resolve(snapshot, relative_path)
     if path.stat().st_size > limits.max_file_bytes:
         raise ReadFileError("file exceeds read limit")
@@ -77,4 +81,3 @@ def read_lines(
         end_line=actual_end,
         text="\n".join(selected),
     )
-
