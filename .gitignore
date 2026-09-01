@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+.DS_Store
+
+# 内蔵モデル重みはGit差分へ混ぜず、release bundleで配布する。
+resources/models/

@@ -1,0 +1,15 @@
+{
+  "schema_version": "0.1",
+  "model_id": "Qwen/Qwen3-0.6B",
+  "artifact": "qwen3-0.6b-q4_k_m.gguf",
+  "format": "GGUF",
+  "quantization": "Q4_K_M",
+  "runtime": "llama.cpp",
+  "license": "Apache-2.0",
+  "license_url": "https://huggingface.co/Qwen/Qwen3-0.6B",
+  "source_url": "https://huggingface.co/Qwen/Qwen3-0.6B",
+  "weights_in_source_control": false,
+  "release_bundle_required": true,
+  "model_sha256": null,
+  "artifact_status": "release_asset_required"
+}

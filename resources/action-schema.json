@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentScopeAction",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "tool", "arguments"],
+      "properties": {
+        "kind": {"const": "tool_call"},
+        "tool": {"type": "string"},
+        "arguments": {"type": "object"},
+        "hypothesis": {"type": "string"},
+        "focus": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "decision", "reason", "missing_unknowns"],
+      "properties": {
+        "kind": {"const": "finish"},
+        "decision": {
+          "type": "string",
+          "enum": ["ENOUGH_EVIDENCE", "INSUFFICIENT_EVIDENCE"]
+        },
+        "reason": {"type": "string"},
+        "missing_unknowns": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  ]
+}
+

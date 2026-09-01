@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentScopeEvidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "claim_key",
+    "source_kind",
+    "file",
+    "start_line",
+    "end_line",
+    "display_ref",
+    "excerpt",
+    "excerpt_sha256",
+    "commit_sha",
+    "reason",
+    "confidence"
+  ],
+  "properties": {
+    "id": {"type": "string", "pattern": "^e[1-9][0-9]*$"},
+    "claim_key": {"type": "string", "minLength": 1},
+    "source_kind": {"enum": ["repository", "git", "github_api", "derived_manifest"]},
+    "file": {"type": "string", "pattern": "^(?!/)(?!~)[^\\n]+$"},
+    "start_line": {"type": "integer", "minimum": 1},
+    "end_line": {"type": "integer", "minimum": 1},
+    "display_ref": {"type": "string", "minLength": 3},
+    "excerpt": {"type": "string"},
+    "excerpt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "commit_sha": {"type": "string", "minLength": 1},
+    "reason": {"type": "string", "minLength": 1},
+    "confidence": {"enum": ["high", "medium", "low", "unknown"]}
+  }
+}

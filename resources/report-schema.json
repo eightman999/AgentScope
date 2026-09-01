@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentScopeReport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "runtime",
+    "scores",
+    "classifications",
+    "evidence",
+    "unknowns",
+    "action_trace_ref"
+  ],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "subject": {"type": "object"},
+    "runtime": {"type": "object"},
+    "scores": {"type": "array"},
+    "classifications": {"type": "object"},
+    "evidence": {"type": "array"},
+    "unknowns": {"type": "array"},
+    "action_trace_ref": {"type": "string"},
+    "fact_graph": {"type": "object"}
+  }
+}

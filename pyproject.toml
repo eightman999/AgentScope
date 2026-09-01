@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentscope"
+version = "0.1.0"
+description = "Evidence-first audit of agentic behavior in GitHub repositories"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+agentscope = "agentscope.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+agentscope = ["resources/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
