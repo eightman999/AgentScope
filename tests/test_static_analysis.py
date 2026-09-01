@@ -9,6 +9,7 @@ from agentscope.acquisition.git_snapshot import SnapshotLimits, local_snapshot
 from agentscope.analysis.control_flow import rank_code_records, trace_call_graph
 from agentscope.analysis.detectors import detect
 from agentscope.analysis.inventory import FileRecord, build_inventory
+from agentscope.analysis.path_priority import is_runtime_path
 from agentscope.analysis.search import search_code
 from agentscope.domain.evidence import EvidenceLedger
 from agentscope.domain.facts import FactGraph
@@ -164,6 +165,20 @@ class StaticAnalysisTests(unittest.TestCase):
         result = detect(snapshot, inventory, "tooling")
 
         self.assertEqual(result.hits, [])
+
+    def test_runtime_path_excludes_placeholder_template_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            template = root / "Code" / "{{PROJECT}}-docs" / "scripts" / "doctor.sh"
+            template.parent.mkdir(parents=True)
+            template.write_text("mcp doctor\n", encoding="utf-8")
+            snapshot = local_snapshot(root, commit_sha="fixture-sha")
+            inventory = build_inventory(snapshot)
+
+            result = detect(snapshot, inventory, "tooling")
+
+            self.assertFalse(is_runtime_path("Code/{{PROJECT}}-docs/scripts/doctor.sh"))
+            self.assertEqual(result.hits, [])
 
 
 if __name__ == "__main__":

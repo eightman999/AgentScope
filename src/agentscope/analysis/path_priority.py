@@ -95,6 +95,8 @@ def is_runtime_path(path: str) -> bool:
         "templates",
     }:
         return False
+    if any("{{" in part or "}}" in part for part in parts):
+        return False
     return not any(
         marker in part
         for part in parts
