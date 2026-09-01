@@ -32,7 +32,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     print(result.artifacts.path("report.md").read_text(encoding="utf-8"), end="")
     print(f"\nartifact: {result.artifacts.root}", file=sys.stderr)
-    return 0
+    return 1 if result.report["runtime"].get("status") == "failed" else 0
 
 
 if __name__ == "__main__":

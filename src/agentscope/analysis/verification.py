@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from agentscope.acquisition.artifacts import ArtifactStore
 from agentscope.acquisition.git_snapshot import Snapshot
@@ -19,6 +20,14 @@ class VerificationFacts:
     assertion_hits: int = 0
     evidence_ids: list[str] = field(default_factory=list)
     coverage: str = "partial"
+
+
+def _first_line(snapshot: Snapshot, relative_path: str) -> str | None:
+    try:
+        lines = (snapshot.root / Path(relative_path)).read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return None
+    return lines[0] if lines else None
 
 
 def inspect_tests(
@@ -40,32 +49,34 @@ def inspect_tests(
             or lower.endswith(".test.ts")
         ):
             facts.test_files.append(record.path)
-            hit = SearchHit(record.path, 1, f"test candidate: {record.path}")
-            evidence = add_hit_evidence(
-                ledger,
-                hit,
-                claim_key="verification.tests",
-                commit_sha=commit_sha,
-                reason="A test-like file is present in the repository inventory.",
-                confidence="medium",
-            )
-            facts.evidence_ids.append(evidence.id)
+            first_line = _first_line(snapshot, record.path)
+            if first_line is not None:
+                evidence = add_hit_evidence(
+                    ledger,
+                    SearchHit(record.path, 1, first_line),
+                    claim_key="verification.tests",
+                    commit_sha=commit_sha,
+                    reason="A test-like file is present in the repository inventory.",
+                    confidence="medium",
+                )
+                facts.evidence_ids.append(evidence.id)
         if lower.startswith(".github/workflows/") or lower in {
             ".gitlab-ci.yml",
             "azure-pipelines.yml",
             "circle.yml",
         }:
             facts.ci_files.append(record.path)
-            hit = SearchHit(record.path, 1, f"CI candidate: {record.path}")
-            evidence = add_hit_evidence(
-                ledger,
-                hit,
-                claim_key="verification.ci",
-                commit_sha=commit_sha,
-                reason="A CI workflow candidate is present.",
-                confidence="medium",
-            )
-            facts.evidence_ids.append(evidence.id)
+            first_line = _first_line(snapshot, record.path)
+            if first_line is not None:
+                evidence = add_hit_evidence(
+                    ledger,
+                    SearchHit(record.path, 1, first_line),
+                    claim_key="verification.ci",
+                    commit_sha=commit_sha,
+                    reason="A CI workflow candidate is present.",
+                    confidence="medium",
+                )
+                facts.evidence_ids.append(evidence.id)
     assertion_hits = search_code(
         snapshot,
         inventory,

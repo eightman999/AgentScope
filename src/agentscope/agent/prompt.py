@@ -30,7 +30,10 @@ def build_model_context(
     observations: list[str],
     facts: dict[str, Any],
 ) -> ModelContext:
-    bounded_observations = observations[-8:]
+    bounded_observations = [
+        item[:1000] if isinstance(item, str) else str(item)[:1000]
+        for item in observations[-6:]
+    ]
     bounded_state = dict(state)
     action_history = state.get("action_history")
     if isinstance(action_history, list):
@@ -42,11 +45,20 @@ def build_model_context(
                     bounded_item["result"] = bounded_item["result"][:500]
                 bounded_history.append(bounded_item)
         bounded_state["action_history"] = bounded_history
-    bounded_facts = {
-        key: value
-        for key, value in facts.items()
-        if key not in {"raw_hits", "all_lines"}
-    }
+    bounded_state["observations"] = bounded_observations
+    bounded_facts: dict[str, Any] = {}
+    for key, value in facts.items():
+        if key in {"raw_hits", "all_lines", "provenance", "github_metadata", "verification"}:
+            continue
+        if isinstance(value, list):
+            bounded_facts[key] = value[:12]
+        elif isinstance(value, dict):
+            bounded_facts[key] = {
+                item_key: item_value
+                for item_key, item_value in list(value.items())[:12]
+            }
+        else:
+            bounded_facts[key] = value
     prompt = (
         SYSTEM_INSTRUCTIONS
         + "\n\nCURRENT AUDIT STATE:\n"

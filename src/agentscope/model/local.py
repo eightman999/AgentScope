@@ -139,10 +139,12 @@ class LocalLlamaCppProvider:
             "verification": {"inspect_tests"},
             "concept_lineage": {"inspect_concept_lineage"},
         }
-        allowed: set[str] = {"search_code"}
+        allowed: set[str] = set()
         for capability in missing_capabilities:
             if isinstance(capability, str):
                 allowed.update(capability_tools.get(capability, set()))
+        if "readme" in missing_capabilities:
+            allowed.add("search_code")
         if not allowed:
             raise ModelProviderError("no model tool is eligible for the missing capabilities")
         grammar = self.tool_grammar_path.read_text(encoding="utf-8")

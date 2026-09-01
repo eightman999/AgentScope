@@ -44,7 +44,7 @@ class ModelRuntimeTests(unittest.TestCase):
             self.assertNotIn("toolplain", readme_grammar.splitlines()[1])
 
             llm_grammar = provider._filtered_tool_grammar(["llm_calls"])
-            self.assertIn("toolcall ::= toolplain | toolsearch", llm_grammar)
+            self.assertIn("toolcall ::= toolplain", llm_grammar)
             self.assertIn('plainname ::= "\\\"inspect_llm_calls\\\""', llm_grammar)
             self.assertNotIn("inspect_tooling", llm_grammar.split("plainname ::= ", 1)[1].splitlines()[0])
 
