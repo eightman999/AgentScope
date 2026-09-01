@@ -6,8 +6,8 @@ from pathlib import Path
 
 from agentscope.acquisition.artifacts import ArtifactStore
 from agentscope.acquisition.git_snapshot import local_snapshot
-from agentscope.analysis.control_flow import trace_call_graph
-from agentscope.analysis.inventory import build_inventory
+from agentscope.analysis.control_flow import rank_code_records, trace_call_graph
+from agentscope.analysis.inventory import FileRecord, build_inventory
 from agentscope.analysis.search import search_code
 from agentscope.domain.evidence import EvidenceLedger
 from agentscope.domain.facts import FactGraph
@@ -16,6 +16,20 @@ from tests.helpers import fixture
 
 
 class StaticAnalysisTests(unittest.TestCase):
+    def test_runtime_files_are_ranked_before_tests_and_examples(self) -> None:
+        records = [
+            FileRecord("tests/test_agent.py", 1, "python"),
+            FileRecord("examples/agent.py", 1, "python"),
+            FileRecord("src/runtime/agent.py", 1, "python"),
+        ]
+
+        ranked = rank_code_records(records)
+
+        self.assertEqual(
+            [record.path for record in ranked],
+            ["src/runtime/agent.py", "examples/agent.py", "tests/test_agent.py"],
+        )
+
     def test_dynamic_trace_uses_real_source_line_numbers(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             artifacts = ArtifactStore.create(Path(directory), "run")
@@ -31,6 +45,7 @@ class StaticAnalysisTests(unittest.TestCase):
                 commit_sha="fixture-sha",
             )
             self.assertIn("agent.py", result.matched_files)
+            self.assertEqual(result.priority_files, ["agent.py"])
             self.assertTrue(graph.has_edge_kind("controls"))
             self.assertTrue(graph.has_edge_kind("dispatches"))
             self.assertTrue(graph.has_edge_kind("observes"))

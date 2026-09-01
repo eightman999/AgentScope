@@ -17,12 +17,14 @@ from agentscope.domain.facts import FactGraph
 @dataclass
 class TraceResult:
     matched_files: list[str] = field(default_factory=list)
+    priority_files: list[str] = field(default_factory=list)
     coverage: str = "partial"
     uncertainties: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, object]:
         return {
             "matched_files": self.matched_files,
+            "priority_files": self.priority_files,
             "coverage": self.coverage,
             "uncertainties": self.uncertainties,
         }
@@ -684,6 +686,62 @@ def _python_functions(tree: ast.Module) -> list[ast.FunctionDef | ast.AsyncFunct
     )
 
 
+def runtime_path_priority(path: str) -> int:
+    """runtime本体をtests/examplesより先に見るための決定論的な順位。"""
+
+    normalized = path.replace("\\", "/").strip("/").lower()
+    parts = set(normalized.split("/"))
+    name = Path(normalized).name
+    score = 0
+
+    # 説明・検証用コードは、runtime本体の同名サンプルより後ろに置く。
+    if "tests" in parts or name.startswith("test_") or name.endswith("_test.py"):
+        score -= 180
+    if parts & {"examples", "example", "samples", "sample", "demos", "demo"}:
+        score -= 130
+    if parts & {"docs", "doc", "notebooks", "benchmark", "benchmarks", "fixtures"}:
+        score -= 100
+    if ".github" in parts:
+        score -= 80
+
+    # 一般的なpackage layoutと、agent runtimeを表すファイル名を優先する。
+    if "src" in parts:
+        score += 120
+    if "packages" in parts or "lib" in parts:
+        score += 80
+    if parts & {
+        "agent",
+        "agents",
+        "runtime",
+        "executor",
+        "executors",
+        "graph",
+        "graphs",
+        "workflow",
+        "workflows",
+        "loop",
+        "loops",
+        "tool",
+        "tools",
+        "model",
+        "models",
+        "llm",
+    }:
+        score += 35
+    if re.search(r"(?:agent|executor|runtime|graph|workflow|loop|tool|model|llm)", name):
+        score += 20
+    return score
+
+
+def rank_code_records(records: list[object]) -> list[object]:
+    """FileRecord相当のpathを持つrecordをruntime優先で安定ソートする。"""
+
+    return sorted(
+        records,
+        key=lambda record: (-runtime_path_priority(str(getattr(record, "path", ""))), str(getattr(record, "path", ""))),
+    )
+
+
 def trace_call_graph(
     snapshot: Snapshot,
     inventory: Inventory,
@@ -701,6 +759,8 @@ def trace_call_graph(
     ]
     if target_path:
         code_records = [record for record in code_records if record.path == target_path]
+    code_records = rank_code_records(code_records)
+    result.priority_files = [record.path for record in code_records[:24]]
     for record in code_records:
         path = snapshot.root / Path(record.path)
         try:
