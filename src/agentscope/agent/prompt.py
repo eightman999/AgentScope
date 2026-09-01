@@ -8,7 +8,7 @@ from typing import Any
 from agentscope.model.provider import ModelContext
 
 
-PROMPT_VERSION = "0.1"
+PROMPT_VERSION = "0.2"
 
 
 SYSTEM_INSTRUCTIONS = (
@@ -71,7 +71,7 @@ def build_model_context(
         + "\n---\n".join(bounded_observations)
         + "\n\nDECISION RULES:\n"
         + "- missing_capabilitiesが1つでもあればENOUGH_EVIDENCEを絶対に選ばず、最も価値の高い未調査toolを選ぶ。\n"
-        + "- 初回はread_fileでREADME.mdを読む。既読なら観測に応じてsearch_codeまたは専用inspect/trace toolを選ぶ。\n"
+        + "- 初回はlist_repo_treeで実在ファイルを確認し、READMEが存在する場合だけread_fileで読む。既読または不在なら観測に応じてsearch_codeまたは専用inspect/trace toolを選ぶ。\n"
         + "- 必須領域を調査し、budgetが尽きそうまたは証拠不足ならINSUFFICIENT_EVIDENCEを選ぶ。\n"
         + "- Do not claim that a capability was inspected unless CURRENT AUDIT STATE records it.\n"
         + "\n\nReturn exactly one JSON object with kind tool_call or finish."

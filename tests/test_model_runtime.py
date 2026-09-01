@@ -39,9 +39,9 @@ class ModelRuntimeTests(unittest.TestCase):
                 tool_grammar_path=resource_root / "tool-action-grammar.gbnf",
             )
             readme_grammar = provider._filtered_tool_grammar(["readme"])
-            self.assertIn("toolcall ::= toolread | toolsearch", readme_grammar)
+            self.assertIn("toolcall ::= toolplain | toolread | toolsearch", readme_grammar)
             self.assertIn('readargs ::= "{" ws "\\\"path\\\"" ws ":" ws string ws "}"', readme_grammar)
-            self.assertNotIn("toolplain", readme_grammar.splitlines()[1])
+            self.assertIn('plainname ::= "\\\"list_repo_tree\\\""', readme_grammar)
 
             llm_grammar = provider._filtered_tool_grammar(["llm_calls"])
             self.assertIn("toolcall ::= toolplain", llm_grammar)

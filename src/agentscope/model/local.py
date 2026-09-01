@@ -129,7 +129,7 @@ class LocalLlamaCppProvider:
         if not isinstance(missing_capabilities, list):
             raise ModelProviderError("missing_capabilities must be an array")
         capability_tools = {
-            "readme": {"read_file"},
+            "readme": {"list_repo_tree", "read_file"},
             "llm_calls": {"inspect_llm_calls"},
             "tooling": {"inspect_tooling"},
             "control_flow": {"trace_call_graph"},
