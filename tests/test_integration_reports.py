@@ -9,17 +9,34 @@ from agentscope.acquisition.github_metadata import GitHubMetadataSource
 from agentscope.acquisition.github_url import parse_github_url
 from agentscope.application import audit_local_directory
 
-from tests.helpers import complete_script, fixture, metadata_source, mock_provider, provenance_runner
+from tests.helpers import (
+    complete_script,
+    fixture,
+    insufficient_script,
+    metadata_source,
+    mock_provider,
+    provenance_runner,
+)
 
 
 class IntegrationReportTests(unittest.TestCase):
-    def _audit(self, name: str, *, metadata=None, git_runner=None, dynamic=False):
+    def _audit(
+        self,
+        name: str,
+        *,
+        metadata=None,
+        git_runner=None,
+        dynamic=False,
+        script=None,
+    ):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         return audit_local_directory(
             fixture(name),
             artifacts=ArtifactStore.create(Path(directory.name), "run"),
-            provider=mock_provider(complete_script(dynamic_selection=dynamic)),
+            provider=mock_provider(
+                script if script is not None else complete_script(dynamic_selection=dynamic)
+            ),
             metadata_source=metadata,
             git_runner=git_runner,
         )
@@ -70,6 +87,15 @@ class IntegrationReportTests(unittest.TestCase):
         self.assertEqual(result.report["classifications"]["mcp_tooling"]["value"], "yes")
         self.assertEqual(result.report["classifications"]["agentic_runtime"]["value"], "no")
 
+    def test_model_selected_tool_sequence_changes_with_observation(self) -> None:
+        dynamic = self._audit("dynamic_agent", dynamic=True)
+        fixed = self._audit("fixed_workflow")
+        dynamic_tools = [item.tool for item in dynamic.context.state.action_history]
+        fixed_tools = [item.tool for item in fixed.context.state.action_history]
+        self.assertEqual(dynamic_tools[1:3], ["inspect_tooling", "inspect_llm_calls"])
+        self.assertEqual(fixed_tools[1:3], ["inspect_llm_calls", "inspect_tooling"])
+        self.assertNotEqual(dynamic_tools, fixed_tools)
+
     def test_derived_concept_and_fork_are_distinct(self) -> None:
         result = self._audit(
             "fork_derived",
@@ -101,6 +127,17 @@ class IntegrationReportTests(unittest.TestCase):
         result = self._audit("insufficient")
         self.assertEqual(result.report["classifications"]["formal_github_fork"]["value"], "unknown")
         self.assertEqual(result.report["classifications"]["ai_assisted_development"]["value"], "unknown")
+
+    def test_insufficient_evidence_is_explicit(self) -> None:
+        result = self._audit("insufficient", script=insufficient_script())
+        self.assertEqual(result.report["runtime"]["termination"], "INSUFFICIENT_EVIDENCE")
+        self.assertEqual(result.report["runtime"]["status"], "completed")
+        self.assertTrue(result.report["unknowns"])
+        for item in result.report["scores"]:
+            self.assertIsNone(item["score"])
+            self.assertEqual(item["state"], "unknown")
+        for item in result.report["classifications"].values():
+            self.assertEqual(item["value"], "unknown")
 
     def test_metadata_http_error_is_materialized_without_false_defaults(self) -> None:
         class ErrorResponse:

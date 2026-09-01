@@ -88,7 +88,10 @@ def build_inventory(snapshot: Snapshot, limits: SnapshotLimits | None = None) ->
     for current, dirnames, filenames in os.walk(root, followlinks=False):
         current_path = Path(current)
         dirnames[:] = sorted(
-            name for name in dirnames if name != ".git" and not (current_path / name).is_symlink()
+            name
+            for name in dirnames
+            if name not in {".git", "__pycache__", ".pytest_cache", ".mypy_cache"}
+            and not (current_path / name).is_symlink()
         )
         for filename in sorted(filenames):
             path = current_path / filename

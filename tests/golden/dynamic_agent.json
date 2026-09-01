@@ -1,0 +1,21 @@
+{
+  "runtime": {
+    "termination": "ENOUGH_EVIDENCE"
+  },
+  "scores": {
+    "originality": {"score": null, "state": "unknown"},
+    "agenticity": {"score": 9.0, "state": "confirmed"},
+    "dynamic_tool_selection": {"score": 9.0, "state": "confirmed"},
+    "feedback_adaptation": {"score": 9.0, "state": "confirmed"},
+    "goal_directed_loop": {"score": 9.0, "state": "confirmed"},
+    "verification": {"score": 0.0, "state": "negative"},
+    "agent_tooling": {"score": 8.0, "state": "confirmed"}
+  },
+  "classifications": {
+    "ai_assisted_development": "unknown",
+    "agentic_runtime": "yes",
+    "mcp_tooling": "yes",
+    "formal_github_fork": "unknown",
+    "derived_concept": "no"
+  }
+}

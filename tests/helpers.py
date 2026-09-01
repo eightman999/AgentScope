@@ -59,6 +59,10 @@ def complete_script(*, dynamic_selection: bool = False) -> list[dict[str, Any] |
     ]
 
 
+def insufficient_script() -> list[dict[str, Any] | Any]:
+    return [finish("INSUFFICIENT_EVIDENCE")]
+
+
 class FakeResponse:
     def __init__(self, payload: dict[str, Any], status: int = 200) -> None:
         self.status = status
