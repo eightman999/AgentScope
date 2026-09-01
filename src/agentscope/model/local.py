@@ -54,7 +54,7 @@ class LocalLlamaCppProvider:
             "--ctx-size",
             "8192",
             "--temp",
-            "0.2",
+            "0.0",
             "--seed",
             "42",
             "--no-display-prompt",
