@@ -8,3 +8,6 @@ build/
 
 # 内蔵モデル重みはGit差分へ混ぜず、release bundleで配布する。
 resources/models/
+
+# ベンチマークのclone snapshotと監査traceは大きいためGit管理しない。
+benchmarks/runs/
