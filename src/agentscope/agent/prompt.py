@@ -35,6 +35,7 @@ def build_model_context(
         for item in observations[-6:]
     ]
     bounded_state = dict(state)
+    bounded_state.pop("readable_paths", None)
     action_history = state.get("action_history")
     if isinstance(action_history, list):
         bounded_history: list[Any] = []
