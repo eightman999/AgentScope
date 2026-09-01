@@ -160,6 +160,43 @@ class BenchmarkRunnerTests(unittest.TestCase):
                 "artifacts/fixture-agent-0123456789ab/report.json",
             )
 
+    def test_fixed_snapshot_mode_reuses_case_cache_and_records_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = self._dataset(root)
+            snapshot_base = root / "snapshots"
+            snapshot = snapshot_base / f"fixture-agent-{SHA[:12]}" / "snapshot"
+            snapshot.mkdir(parents=True)
+
+            def fake_audit_snapshot_directory(
+                snapshot_root: Path,
+                **kwargs: object,
+            ) -> SimpleNamespace:
+                self.assertEqual(snapshot_root, snapshot.resolve())
+                self.assertEqual(kwargs["expected_commit_sha"], SHA)
+                output_base = kwargs["output_base"]
+                run_id = kwargs["run_id"]
+                assert isinstance(output_base, Path)
+                assert isinstance(run_id, str)
+                artifacts = ArtifactStore.create(output_base, run_id)
+                report = {"subject": {"commit_sha": SHA}}
+                artifacts.write_json("report.json", report)
+                return SimpleNamespace(artifacts=artifacts, report=report)
+
+            with patch(
+                "agentscope.benchmark.runner.audit_snapshot_directory",
+                fake_audit_snapshot_directory,
+            ):
+                result = run_benchmark(
+                    dataset,
+                    root / "run",
+                    snapshot_base=snapshot_base,
+                )
+
+            self.assertEqual(result["completed_n"], 1)
+            manifest = json.loads((root / "run" / "manifest.json").read_text())
+            self.assertEqual(manifest["snapshot_base"], str(snapshot_base.resolve()))
+
 
 if __name__ == "__main__":
     unittest.main()

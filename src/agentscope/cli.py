@@ -43,6 +43,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--ids", nargs="+", metavar="CASE_ID")
     run.add_argument("--max-steps", type=int, default=14)
     run.add_argument(
+        "--snapshot-base",
+        type=Path,
+        help="reuse fixed-SHA checkouts under <base>/<case>-<sha12>/snapshot",
+    )
+    run.add_argument(
         "--no-resume",
         action="store_true",
         help="rerun completed cases into a new artifact attempt",
@@ -87,6 +92,7 @@ def main(argv: list[str] | None = None) -> int:
                     resume=not args.no_resume,
                     dry_run=args.dry_run,
                     limits=SnapshotLimits(max_steps=args.max_steps),
+                    snapshot_base=args.snapshot_base,
                 )
                 print(json.dumps(result, ensure_ascii=False, indent=2))
                 return 1 if result.get("failed_n", 0) else 0

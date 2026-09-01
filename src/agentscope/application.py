@@ -20,10 +20,12 @@ from agentscope.acquisition.artifacts import (
 from agentscope.acquisition.github_metadata import GitHubMetadataSource
 from agentscope.acquisition.github_url import GitHubRepoRef, parse_github_url
 from agentscope.acquisition.git_snapshot import (
+    AcquisitionError,
     GitSnapshotSource,
     Snapshot,
     SnapshotLimits,
     local_snapshot,
+    run_git,
 )
 from agentscope.agent.loop import AgentLoop, AgentLoopResult
 from agentscope.agent.prompt import PROMPT_VERSION
@@ -351,4 +353,58 @@ def audit_local_directory(
         runtime_version=runtime_version,
         git_runner=git_runner,
         audited_at=audited_at,
+    )
+
+
+def audit_snapshot_directory(
+    root: Path,
+    *,
+    raw_url: str,
+    expected_commit_sha: str,
+    output_base: Path,
+    limits: SnapshotLimits | None = None,
+    run_id: str | None = None,
+) -> AuditResult:
+    """既存の固定SHA checkoutを再利用して監査する。
+
+    benchmarkの再生ではcloneを繰り返さず、事前に検証済みのsnapshotだけを
+    読み込む。呼び出し時にもHEADを再確認し、datasetのSHAと異なるsnapshotを
+    監査しない。
+    """
+
+    resolved_root = root.resolve()
+    if not resolved_root.is_dir():
+        raise AcquisitionError(f"snapshot root is not a directory: {root}")
+    sha_result = run_git(["git", "rev-parse", "HEAD"], cwd=resolved_root)
+    if sha_result.returncode != 0:
+        raise AcquisitionError("could not resolve cached snapshot commit")
+    actual_commit_sha = sha_result.stdout.strip()
+    if expected_commit_sha.lower() != actual_commit_sha.lower():
+        raise AcquisitionError(
+            "snapshot commit does not match expected commit "
+            f"{expected_commit_sha.lower()}; got {actual_commit_sha.lower()}"
+        )
+    ref = parse_github_url(raw_url)
+    limits = limits or SnapshotLimits()
+    artifacts = ArtifactStore.create(output_base, _run_id(ref, run_id))
+    snapshot = Snapshot(
+        root=resolved_root,
+        commit_sha=actual_commit_sha,
+        coverage="partial",
+    )
+    provider, model_id, model_sha256, engine, runtime_version = _model_provider(
+        _resource_root()
+    )
+    return audit_snapshot(
+        raw_url=raw_url,
+        ref=ref,
+        snapshot=snapshot,
+        artifacts=artifacts,
+        provider=provider,
+        metadata_source=GitHubMetadataSource(),
+        limits=limits,
+        model_id=model_id,
+        model_sha256=model_sha256,
+        engine=engine,
+        runtime_version=runtime_version,
     )

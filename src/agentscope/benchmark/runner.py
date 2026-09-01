@@ -10,7 +10,7 @@ import sys
 from typing import Any, Iterable
 
 from agentscope.acquisition.git_snapshot import AcquisitionError, SnapshotLimits
-from agentscope.application import audit_url
+from agentscope.application import audit_snapshot_directory, audit_url
 from agentscope.benchmark.metrics import (
     BenchmarkPrediction,
     compute_benchmark_metrics,
@@ -118,8 +118,10 @@ def _ensure_manifest(
     dataset_path: Path,
     digest: str,
     cases: list[BenchmarkCase],
+    snapshot_base: Path | None,
 ) -> dict[str, Any]:
     path = _manifest_path(output_dir)
+    snapshot_base_value = str(snapshot_base.resolve()) if snapshot_base is not None else None
     if path.exists():
         manifest = _read_json(path)
         if manifest.get("schema_version") != BENCHMARK_SCHEMA_VERSION:
@@ -127,6 +129,10 @@ def _ensure_manifest(
         if manifest.get("dataset_sha256") != digest:
             raise BenchmarkRunError(
                 "dataset digest differs from existing run; choose a new output directory"
+            )
+        if manifest.get("snapshot_base") != snapshot_base_value:
+            raise BenchmarkRunError(
+                "snapshot base differs from existing run; choose a new output directory"
             )
         return manifest
     manifest = {
@@ -139,8 +145,20 @@ def _ensure_manifest(
         "platform": platform.platform(),
         "runner": "agentscope.benchmark.runner",
     }
+    if snapshot_base is not None:
+        manifest["snapshot_base"] = snapshot_base_value
     _write_json(path, manifest)
     return manifest
+
+
+def _cached_snapshot_root(snapshot_base: Path, case: BenchmarkCase) -> Path:
+    """固定snapshot cacheのcase別ディレクトリを安全に解決する。"""
+
+    base = snapshot_base.resolve()
+    candidate = (base / f"{case.id}-{case.commit_sha[:12]}" / "snapshot").resolve()
+    if candidate == base or base not in candidate.parents:
+        raise BenchmarkRunError("cached snapshot path escapes snapshot base")
+    return candidate
 
 
 def _next_run_id(artifacts_dir: Path, case: BenchmarkCase) -> str:
@@ -179,6 +197,7 @@ def run_benchmark(
     resume: bool = True,
     dry_run: bool = False,
     limits: SnapshotLimits | None = None,
+    snapshot_base: Path | None = None,
 ) -> dict[str, Any]:
     """dataset順に監査し、各caseの完了直後にresults.jsonlを更新する。"""
 
@@ -189,11 +208,15 @@ def run_benchmark(
         raise BenchmarkRunError(str(exc)) from exc
     id_set = set(ids) if ids is not None else None
     selected = _select_cases(cases, limit=limit, ids=id_set)
+    resolved_snapshot_base = snapshot_base.resolve() if snapshot_base is not None else None
     if dry_run:
         return {
             "output_dir": str(output_dir),
             "dataset_sha256": digest,
             "selected_ids": [case.id for case in selected],
+            "snapshot_base": (
+                str(resolved_snapshot_base) if resolved_snapshot_base is not None else None
+            ),
             "dry_run": True,
         }
 
@@ -207,6 +230,7 @@ def run_benchmark(
         dataset_path=dataset_path,
         digest=digest,
         cases=cases,
+        snapshot_base=resolved_snapshot_base,
     )
     results_path = output_dir / "results.jsonl"
     result_rows = _read_result_rows(results_path)
@@ -243,13 +267,23 @@ def run_benchmark(
         run_id = _next_run_id(artifacts_dir, case)
         report_path: str | None = None
         try:
-            result = audit_url(
-                case.url,
-                output_base=artifacts_dir,
-                limits=limits,
-                run_id=run_id,
-                expected_commit_sha=case.commit_sha,
-            )
+            if resolved_snapshot_base is None:
+                result = audit_url(
+                    case.url,
+                    output_base=artifacts_dir,
+                    limits=limits,
+                    run_id=run_id,
+                    expected_commit_sha=case.commit_sha,
+                )
+            else:
+                result = audit_snapshot_directory(
+                    _cached_snapshot_root(resolved_snapshot_base, case),
+                    raw_url=case.url,
+                    expected_commit_sha=case.commit_sha,
+                    output_base=artifacts_dir,
+                    limits=limits,
+                    run_id=run_id,
+                )
             report_path = result.artifacts.path("report.json").relative_to(output_dir).as_posix()
             row = _result_row(
                 case=case,
