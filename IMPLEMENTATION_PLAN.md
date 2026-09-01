@@ -2,9 +2,9 @@
 
 - 正典: /Users/eightman/dev/apps/AgentScope/spec.md
 - 運用: spec.mdを唯一の正典とし、このファイルは実行順とチェック項目だけを持つ派生計画とする。
-- 状態: 実装・検証済み（redirect実地検証、subprocess監視、release bundle / clean environment は未完了）
-- 対象: P0のみ
-- 最終確認: 2026-09-01。25テスト、target実モデルsmoke、self-audit、同一snapshot再現性、package buildを実測。
+- 状態: P0主要実装・P1先行精度改善・release bundle / clean environment 検証済み（redirect実地検証、subprocess監視、捏造model outputのUnknown変換は未完了）
+- 対象: P0 + P1先行のcontrol-flow精度改善
+- 最終確認: 2026-09-01。29テスト、adversarial negative fixture、target実モデルsmoke、self-audit、同一snapshot再現性、package build、bundle hash/署名、clean environment demoを実測。
 
 ## 0. 実装方針
 
@@ -180,7 +180,7 @@ Phase gate:
 - [x] prompt injection、秘密文字列、悪意あるREADMEを検証する。
 - [x] run manifestへ対象SHA、model SHA、runtime version、schema version、prompt versionを保存する。
 - [x] 同じsnapshotとseedで再監査し、許容差分を定義する。
-- [ ] model weightsとllama.cpp runtimeをrelease bundleへ同梱する。
+- [x] model weightsとllama.cpp runtimeをrelease bundleへ同梱する（`scripts/build_release_bundle.py`でmacOS arm64 bundleを生成し、manifest hash・署名・runtime起動を確認）。
 
 検証:
 
@@ -192,12 +192,31 @@ Phase gate:
 
 - 安全性、Unknown伝播、再現性、配布条件がすべて合格する。
 
+### P1先行: control-flow adversarial precision
+
+ユーザー指摘の「単語共起だけでedgeが立つ」false positiveを、P1の他機能より先に固定する。
+
+- [x] モデル返り値を捨てて固定actionをdispatchするnegative fixtureを追加する。
+- [x] Agent語彙をコメント/docstringだけに置いたnegative fixtureを追加する。
+- [x] Python control-flowをASTとmodel-derived valueの簡易data-flowで追跡し、実際につながる場合だけ`controls`、`dispatches`、`observes`、`replans`を生成する。
+- [x] 非Pythonのlexical fallbackでコメント・文字列を除外し、追跡不能なruntime edgeを推測しない。
+
+検証:
+
+- [x] `fixed_model_output_discarded`が`model_call`だけを残し、runtime edgeを生成しない。
+- [x] `comment_keywords_only`がmodel nodeとruntime edgeを生成しない。
+- [x] `dynamic_agent`の4種のpositive edgeと29件のテストを維持する。
+
+Phase gate:
+
+- [x] adversarial negative fixtureがfull auditでも`Agentic runtime=No`、`Agenticity=2.0`になる。
+
 ### Phase 6: P0 demo・release
 
 参照: spec.md §4.1、§11 Phase 6、§13、§14
 
-- [ ] clean environmentを用意する。
-- [x] URL以外の入力なしでローカルモデルが起動することを確認する（現環境で確認、clean environmentは未確認）。
+- [x] clean environmentを用意する（新規Python 3.14 venvへbundle wheelを`--no-deps` install）。
+- [x] URL以外の入力なしでローカルモデルが起動することを確認する（bundle内runtimeと`run.sh`で確認）。
 - [x] https://github.com/eightman999/autoresearch-naval を監査する。
 - [x] traceでREADME、LLM/API、tool/MCP、planner/loop/state/retry、model action、Git provenance、fork、co-author、derived concept、testsの調査を確認する。
 - [x] report.md、report.json、audit_trace.jsonlの存在と内容を確認する。
@@ -207,9 +226,9 @@ Phase gate:
 
 Phase gate:
 
-- [x] URL一つでP0のDoDを完走する（現環境のtarget demo）。
+- [x] URL一つでP0のDoDを完走する（clean environmentのbundle target demo）。
 - [x] 失敗・不足証拠の場合も、INSUFFICIENT_EVIDENCEと制限が出る。
-- 内蔵モデル、runtime、license、checksumがrelease artifactで確認できる。
+- [x] 内蔵モデル、runtime、license、checksumがrelease artifactで確認できる。
 
 ## 2. 予定ファイル
 
@@ -225,6 +244,9 @@ src/agentscope/analysis/*
 src/agentscope/agent/*
 src/agentscope/model/*
 src/agentscope/report/*
+LICENSE
+MANIFEST.in
+scripts/build_release_bundle.py
 resources/model-manifest.json
 resources/action-schema.json
 resources/report-schema.json
@@ -232,6 +254,7 @@ tests/fixtures/*
 tests/unit/*
 tests/integration/*
 tests/golden/*
+tests/test_adversarial_precision.py
 ~~~
 
 P1/P2のUI、remote provider、全言語parser、multi-agentは作成しない（spec.md §4.2、§4.3）。
