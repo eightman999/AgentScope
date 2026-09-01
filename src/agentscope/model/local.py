@@ -71,7 +71,15 @@ class LocalLlamaCppProvider:
         inline_grammar: str | None = None
         selected_grammar = self.grammar_path
         if missing_capabilities and self.tool_grammar_path:
-            inline_grammar = self._filtered_tool_grammar(missing_capabilities)
+            history = context.state.get("action_history", [])
+            inventory_seen = any(
+                isinstance(item, dict) and item.get("tool") == "list_repo_tree"
+                for item in history
+            )
+            inline_grammar = self._filtered_tool_grammar(
+                missing_capabilities,
+                include_list_repo_tree=not inventory_seen,
+            )
             selected_grammar = None
         elif self.finish_grammar_path and not missing_capabilities:
             selected_grammar = self.finish_grammar_path
@@ -123,13 +131,18 @@ class LocalLlamaCppProvider:
             raise ModelProviderError("llama.cpp action must be a JSON object")
         return parsed
 
-    def _filtered_tool_grammar(self, missing_capabilities: object) -> str:
+    def _filtered_tool_grammar(
+        self,
+        missing_capabilities: object,
+        *,
+        include_list_repo_tree: bool = True,
+    ) -> str:
         if not self.tool_grammar_path or not self.tool_grammar_path.is_file():
             raise ModelProviderError("tool action grammar could not be read")
         if not isinstance(missing_capabilities, list):
             raise ModelProviderError("missing_capabilities must be an array")
         capability_tools = {
-            "readme": {"list_repo_tree", "read_file"},
+            "readme": {"read_file"},
             "llm_calls": {"inspect_llm_calls"},
             "tooling": {"inspect_tooling"},
             "control_flow": {"trace_call_graph"},
@@ -145,6 +158,8 @@ class LocalLlamaCppProvider:
                 allowed.update(capability_tools.get(capability, set()))
         if "readme" in missing_capabilities:
             allowed.add("search_code")
+            if include_list_repo_tree:
+                allowed.add("list_repo_tree")
         if not allowed:
             raise ModelProviderError("no model tool is eligible for the missing capabilities")
         grammar = self.tool_grammar_path.read_text(encoding="utf-8")
