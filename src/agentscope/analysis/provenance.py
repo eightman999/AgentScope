@@ -94,7 +94,7 @@ def inspect_git_provenance(
     signal_lines: list[SearchHit] = []
     for line_no, line in enumerate(lines, 1):
         if _AI_RE.search(line):
-            signal_lines.append(SearchHit("provenance/git-log.txt", line_no, line[:1000]))
+            signal_lines.append(SearchHit("provenance/git-log.txt", line_no, line))
     for hit in signal_lines:
         if _EXPLICIT_AI_RE.search(hit.text):
             evidence = add_hit_evidence(
@@ -123,7 +123,7 @@ def inspect_git_provenance(
     if not facts.ai_signals and not facts.weak_ai_signals:
         for line_no, line in enumerate(lines, 1):
             if re.search(r"author=|committer=", line, re.IGNORECASE):
-                hit = SearchHit("provenance/git-log.txt", line_no, line[:1000])
+                hit = SearchHit("provenance/git-log.txt", line_no, line)
                 evidence = add_hit_evidence(
                     ledger,
                     hit,
@@ -153,7 +153,7 @@ def inspect_git_provenance(
         remote_lines = remote_text.splitlines()
         evidence = add_hit_evidence(
             ledger,
-            SearchHit("provenance/git-remotes.txt", 1, remote_lines[0][:1000]),
+            SearchHit("provenance/git-remotes.txt", 1, remote_lines[0]),
             claim_key="provenance.remotes",
             commit_sha=commit_sha,
             reason="Git remote metadata was inspected; remote similarity is not a formal fork proof.",

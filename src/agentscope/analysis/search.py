@@ -73,7 +73,9 @@ def search_code(
         for line_no, line in enumerate(lines, 1):
             matched = bool(pattern.search(line)) if pattern else query.casefold() in line.casefold()
             if matched:
-                hits.append(SearchHit(record.path, line_no, line[:1000]))
+                # Evidenceのexcerptはreport lintで実ファイルの行と完全一致させる。
+                # 表示側の短縮はprompt/observation層で行い、ここでは原文を保持する。
+                hits.append(SearchHit(record.path, line_no, line))
                 if len(hits) >= max_hits:
                     break
     return hits

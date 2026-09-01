@@ -336,7 +336,7 @@ def _search(context: AuditToolContext, arguments: dict[str, Any]) -> ToolResult:
             )
         )
     observation = "\n".join(
-        f"{hit.path}:{hit.line}: {hit.text}" for hit in hits[:50]
+        f"{hit.path}:{hit.line}: {hit.text[:1000]}" for hit in hits[:50]
     ) or "No matching lines were found in the bounded inventory."
     return ToolResult(
         observation=observation,
@@ -382,7 +382,7 @@ def _detector(
     context.facts[f"{capability}_hits"] = len(result.hits)
     return ToolResult(
         observation="\n".join(
-            f"{hit.path}:{hit.line}: {hit.text}" for hit in result.hits[:50]
+            f"{hit.path}:{hit.line}: {hit.text[:1000]}" for hit in result.hits[:50]
         )
         or f"No {category} candidate was found.",
         evidence_ids=evidence_ids,

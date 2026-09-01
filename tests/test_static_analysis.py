@@ -58,6 +58,17 @@ class StaticAnalysisTests(unittest.TestCase):
         self.assertEqual(len(hits), 1)
         self.assertEqual(hits[0].path, "README.md")
 
+    def test_search_preserves_long_source_lines_for_evidence_lint(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_line = "needle " + ("x" * 1200)
+            (root / "long.txt").write_text(source_line + "\n", encoding="utf-8")
+            snapshot = local_snapshot(root, commit_sha="fixture-sha")
+            inventory = build_inventory(snapshot)
+            hits = search_code(snapshot, inventory, "needle")
+            self.assertEqual(len(hits), 1)
+            self.assertEqual(hits[0].text, source_line)
+
 
 if __name__ == "__main__":
     unittest.main()

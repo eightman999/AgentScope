@@ -89,7 +89,7 @@ def _line_hit(
 ) -> SearchHit | None:
     for line_no, line in enumerate(lines, 1):
         if pattern.search(line):
-            return SearchHit(path, line_no + line_offset, line[:1000])
+            return SearchHit(path, line_no + line_offset, line)
     return None
 
 
@@ -97,7 +97,7 @@ def _node_hit(path: str, lines: list[str], node: ast.AST) -> SearchHit:
     line_no = max(1, int(getattr(node, "lineno", 1)))
     if lines:
         line_no = min(line_no, len(lines))
-        text = lines[line_no - 1][:1000]
+        text = lines[line_no - 1]
     else:
         text = ""
     return SearchHit(path, line_no, text)
@@ -622,7 +622,7 @@ def _masked_line_hit(
     for line_no, line in enumerate(masked_lines, 1):
         if pattern.search(line):
             original = original_lines[line_no - 1] if line_no <= len(original_lines) else ""
-            return SearchHit(path, line_no + line_offset, original[:1000])
+            return SearchHit(path, line_no + line_offset, original)
     return None
 
 
