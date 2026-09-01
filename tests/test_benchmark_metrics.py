@@ -47,7 +47,10 @@ def _case(case_id: str, value: str, category: str = "clearly_agentic") -> Benchm
             "annotation_status": "adjudicated",
             "human_labels": {"agentic_runtime": _label(value)},
             "human_scores": {"agenticity": 8.0},
-            "annotation": {"annotator": "test"},
+            "annotation": {
+                "annotator": "test",
+                "score_evidence": {"agenticity": [_evidence()]},
+            },
         }
     )
 

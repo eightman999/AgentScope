@@ -342,6 +342,7 @@ def compute_benchmark_metrics(
                 for status in ("adjudicated", "draft", "pending")
             },
             "labeled_case_n": sum(1 for case in cases if case.human_labels),
+            "score_labeled_case_n": sum(1 for case in cases if case.human_scores),
         },
         "predictions": {
             "case_n": len(predictions),

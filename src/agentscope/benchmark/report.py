@@ -71,6 +71,11 @@ def render_benchmark_markdown(metrics: dict[str, Any]) -> str:
     dataset = metrics["dataset"]
     predictions = metrics["predictions"]
     primary = metrics["primary"]
+    status_counts = dataset.get("annotation_status_counts", {})
+    status_text = ", ".join(
+        f"{status}={status_counts.get(status, 0)}"
+        for status in ("adjudicated", "draft", "pending")
+    )
     lines = [
         "# AgentScope benchmark report",
         "",
@@ -78,6 +83,8 @@ def render_benchmark_markdown(metrics: dict[str, Any]) -> str:
         f"- dataset SHA-256: `{dataset.get('sha256') or 'unknown'}`",
         f"- cases: {dataset['case_n']}",
         f"- labeled cases: {dataset['labeled_case_n']}",
+        f"- score-labeled cases: {dataset.get('score_labeled_case_n', 0)}",
+        f"- annotation statuses: {status_text}",
         f"- completed reports: {predictions['completed_report_n']}",
         f"- missing reports: {predictions['missing_report_n']}",
         "",

@@ -267,11 +267,55 @@ class BenchmarkCase:
         annotation = _object(annotation, context=f"{context}.annotation")
         _strict_keys(
             annotation,
-            {"annotator", "adjudicator", "annotated_at", "protocol_version", "agreement"},
+            {
+                "annotator",
+                "adjudicator",
+                "annotated_at",
+                "protocol_version",
+                "agreement",
+                "score_evidence",
+            },
             context=f"{context}.annotation",
         )
         if human_labels and not isinstance(annotation.get("annotator"), str):
             raise BenchmarkSchemaError(f"{context}.annotation.annotator is required for labels")
+        raw_score_evidence = annotation.get("score_evidence", {})
+        raw_score_evidence = _object(
+            raw_score_evidence,
+            context=f"{context}.annotation.score_evidence",
+        )
+        unknown_score_evidence = set(raw_score_evidence) - set(SCORE_KEYS)
+        if unknown_score_evidence:
+            raise BenchmarkSchemaError(
+                f"{context}.annotation.score_evidence contains unknown axes: "
+                f"{sorted(unknown_score_evidence)}"
+            )
+        for key, raw_evidence in raw_score_evidence.items():
+            if not isinstance(raw_evidence, list) or not raw_evidence:
+                raise BenchmarkSchemaError(
+                    f"{context}.annotation.score_evidence.{key} must contain at least one item"
+                )
+            for index, item in enumerate(raw_evidence):
+                evidence = HumanEvidence.from_dict(
+                    item,
+                    context=f"{context}.annotation.score_evidence.{key}[{index}]",
+                )
+                if evidence.commit_sha != commit_sha.lower():
+                    raise BenchmarkSchemaError(
+                        f"{context}.annotation.score_evidence.{key} evidence commit does not match case commit"
+                    )
+        missing_score_evidence = set(human_scores) - set(raw_score_evidence)
+        if missing_score_evidence:
+            raise BenchmarkSchemaError(
+                f"{context}.human_scores requires score_evidence for: "
+                f"{sorted(missing_score_evidence)}"
+            )
+        extra_score_evidence = set(raw_score_evidence) - set(human_scores)
+        if extra_score_evidence:
+            raise BenchmarkSchemaError(
+                f"{context}.annotation.score_evidence has no human score for: "
+                f"{sorted(extra_score_evidence)}"
+            )
         notes = raw.get("notes")
         if notes is not None and not isinstance(notes, str):
             raise BenchmarkSchemaError(f"{context}.notes must be a string when present")

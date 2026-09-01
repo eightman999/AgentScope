@@ -56,7 +56,31 @@
       },
       "additionalProperties": {"type": "number", "minimum": 0, "maximum": 10}
     },
-    "annotation": {"type": "object", "additionalProperties": true},
+    "annotation": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "score_evidence": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "originality",
+              "agenticity",
+              "dynamic_tool_selection",
+              "feedback_adaptation",
+              "goal_directed_loop",
+              "verification",
+              "agent_tooling"
+            ]
+          },
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"$ref": "#/$defs/evidence"}
+          }
+        }
+      }
+    },
     "notes": {"type": "string"}
   },
   "$defs": {

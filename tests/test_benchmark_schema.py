@@ -50,6 +50,7 @@ def _case(case_id: str = "fixture-agent") -> dict[str, object]:
             "adjudicator": "test",
             "annotated_at": "2026-09-02T00:00:00Z",
             "protocol_version": "0.1",
+            "score_evidence": {"agenticity": [_evidence()]},
         },
     }
 
@@ -109,6 +110,12 @@ class BenchmarkSchemaTests(unittest.TestCase):
         case = _case("fixture-no-evidence")
         case["human_labels"] = {"agentic_runtime": _label() | {"evidence": []}}
         with self.assertRaisesRegex(BenchmarkSchemaError, "evidence must contain"):
+            load_dataset(self._write([case]))
+
+    def test_score_without_score_evidence_is_rejected(self) -> None:
+        case = _case("fixture-score-without-evidence")
+        case["annotation"] = {"annotator": "test"}
+        with self.assertRaisesRegex(BenchmarkSchemaError, "requires score_evidence"):
             load_dataset(self._write([case]))
 
 
