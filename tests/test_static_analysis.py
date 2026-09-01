@@ -21,13 +21,21 @@ class StaticAnalysisTests(unittest.TestCase):
             FileRecord("tests/test_agent.py", 1, "python"),
             FileRecord("examples/agent.py", 1, "python"),
             FileRecord("src/runtime/agent.py", 1, "python"),
+            FileRecord("libs/cli/js-examples/src/agent/graph.py", 1, "python"),
+            FileRecord("libs/langgraph/langgraph/graph/state.py", 1, "python"),
         ]
 
         ranked = rank_code_records(records)
 
         self.assertEqual(
             [record.path for record in ranked],
-            ["src/runtime/agent.py", "examples/agent.py", "tests/test_agent.py"],
+            [
+                "src/runtime/agent.py",
+                "libs/langgraph/langgraph/graph/state.py",
+                "libs/cli/js-examples/src/agent/graph.py",
+                "examples/agent.py",
+                "tests/test_agent.py",
+            ],
         )
 
     def test_inventory_budget_prefers_runtime_before_total_size_limit(self) -> None:
