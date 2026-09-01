@@ -2,8 +2,9 @@
 
 - 正典: /Users/eightman/dev/apps/AgentScope/spec.md
 - 運用: spec.mdを唯一の正典とし、このファイルは実行順とチェック項目だけを持つ派生計画とする。
-- 状態: 未着手
+- 状態: 実装・検証済み（redirect実地検証、subprocess監視、release bundle / clean environment は未完了）
 - 対象: P0のみ
+- 最終確認: 2026-09-01。25テスト、target実モデルsmoke、self-audit、同一snapshot再現性、package buildを実測。
 
 ## 0. 実装方針
 
@@ -29,13 +30,13 @@ AgentScopeの公開入力はGitHub公開URL一つだけとする（spec.md §1.2
 
 参照: spec.md §6.1、§11 Phase 0、§12.1、§12.3
 
-- [ ] P0のCLIコマンドとrun artifactの配置を確定する。
-- [ ] Python、git、llama.cppの最小対応環境を確認する。
-- [ ] Qwen3-0.6B GGUF候補のlicense、サイズ、checksum、配布可否を記録する。
-- [ ] action-schema、report-schema、Evidence schema、FactGraph schemaを確定する。
-- [ ] fixture 6種とprompt injection fixtureの最小ソースを設計する。
-- [ ] MockModelProviderのaction scriptと期待traceを作る。
-- [ ] real-model gateの合格基準を固定する。
+- [x] P0のCLIコマンドとrun artifactの配置を確定する。
+- [x] Python、git、llama.cppの最小対応環境を確認する。
+- [x] Qwen3-0.6B GGUF候補のlicense、サイズ、checksum、配布可否を記録する。
+- [x] action-schema、report-schema、Evidence schema、FactGraph schemaを確定する。
+- [x] fixture 6種とprompt injection fixtureの最小ソースを設計する。
+- [x] MockModelProviderのaction scriptと期待traceを作る。
+- [x] real-model gateの合格基準を固定する。
 
 完了条件:
 
@@ -52,20 +53,21 @@ AgentScopeの公開入力はGitHub公開URL一つだけとする（spec.md §1.2
 
 参照: spec.md §5、§6.1、§6.2、§10、§11 Phase 1
 
-- [ ] pyprojectとagentscope CLI entrypointを作る。
-- [ ] GitHub URLのscheme、host、owner、repo、redirectを検証する。
-- [ ] GitHub snapshot providerを作り、HEAD SHAを固定する。
-- [ ] run専用temp directoryとartifact writerを作る。
-- [ ] inventory、binary判定、symlink/submodule/LFS方針、size上限を作る。
-- [ ] line readerがrelative path、start/end line、excerpt hashを返すようにする。
-- [ ] git command allowlistを作る。対象repositoryのscriptは実行しない。
-- [ ] GitHub metadata providerを作り、取得失敗をUnknownへ渡す。
+- [x] pyprojectとagentscope CLI entrypointを作る。
+- [x] GitHub URLのscheme、host、owner、repoを検証する。
+- [ ] git cloneのredirect先hostを拒否する。
+- [x] GitHub snapshot providerを作り、HEAD SHAを固定する。
+- [x] run専用temp directoryとartifact writerを作る。
+- [x] inventory、binary判定、symlink/submodule/LFS方針、size上限を作る。
+- [x] line readerがrelative path、start/end line、excerpt hashを返すようにする。
+- [x] git command allowlistを作る。対象repositoryのscriptは実行しない。
+- [x] GitHub metadata providerを作り、取得失敗をUnknownへ渡す。
 
 検証:
 
-- URL正常系、URL拒否、redirect拒否、clone失敗、巨大file、binary、symlinkをunit testする。
-- fixture snapshotのcommit SHAと指定行が再実行ごとに一致することを確認する。
-- subprocess監視でpackage manager、test runner、対象scriptが呼ばれないことを確認する。
+- [ ] URL正常系、URL拒否、redirect拒否、clone失敗、巨大file、binary、symlinkをunit testする（redirect拒否の実地確認は未完了）。
+- [x] fixture snapshotのcommit SHAと指定行が再実行ごとに一致することを確認する。
+- [ ] subprocess監視でpackage manager、test runner、対象scriptが呼ばれないことを確認する（静的実行禁止とallowlistは確認済み）。
 
 Phase gate:
 
@@ -77,25 +79,25 @@ Phase gate:
 
 参照: spec.md §3、§7、§8、§11 Phase 2
 
-- [ ] README、設定、source、test、CIの候補inventoryを実装する。
-- [ ] LLM/API client、endpoint、model、completion/generate/invoke候補を検出する。
-- [ ] MCP、tool schema、registry、decorator、dispatcher、executor候補を検出する。
-- [ ] planner、loop、state、retry、budget、termination候補を検出する。
-- [ ] Python ASTの関数・呼び出し・代入・分岐・loop抽出を実装する。
-- [ ] JavaScript/TypeScriptの限定的なsymbol/call/data-flow抽出を実装する。
-- [ ] 他言語はliteral検索とcoverage記録へ限定する。
-- [ ] git log、author、committer、Co-authored-by、remoteをmaterializeする。
-- [ ] GitHub fork/parent metadataをmaterializeする。
-- [ ] inspect_concept_lineage用のknown concept初期データへKarpathy/autoresearchを登録する。
-- [ ] EvidenceLedger、Evidence validator、FactGraphを実装する。
+- [x] README、設定、source、test、CIの候補inventoryを実装する。
+- [x] LLM/API client、endpoint、model、completion/generate/invoke候補を検出する。
+- [x] MCP、tool schema、registry、decorator、dispatcher、executor候補を検出する。
+- [x] planner、loop、state、retry、budget、termination候補を検出する。
+- [x] Python ASTの関数・呼び出し・代入・分岐・loop抽出を実装する。
+- [x] JavaScript/TypeScriptの限定的なsymbol/call/data-flow抽出を実装する。
+- [x] 他言語はliteral検索とcoverage記録へ限定する。
+- [x] git log、author、committer、Co-authored-by、remoteをmaterializeする。
+- [x] GitHub fork/parent metadataをmaterializeする。
+- [x] inspect_concept_lineage用のknown concept初期データへKarpathy/autoresearchを登録する。
+- [x] EvidenceLedger、Evidence validator、FactGraphを実装する。
 
 検証:
 
-- 直接positive evidenceが実在行を指す。
-- fixed_workflowでmodel callは検出されるが、model outputからdispatcherへのedgeが作られない。
-- dynamic_agentでmodel output、dispatcher、observation、replanのedgeが作られる。
-- AI-assisted non-agentでco-authorは検出されるが、runtime Agentic edgeは作られない。
-- API unavailable時にfork=false等のデフォルト値が生成されない。
+- [x] 直接positive evidenceが実在行を指す。
+- [x] fixed_workflowでmodel callは検出されるが、model outputからdispatcherへのedgeが作られない。
+- [x] dynamic_agentでmodel output、dispatcher、observation、replanのedgeが作られる。
+- [x] AI-assisted non-agentでco-authorは検出されるが、runtime Agentic edgeは作られない。
+- [x] API unavailable時にfork=false等のデフォルト値が生成されない。
 
 Phase gate:
 
@@ -107,27 +109,27 @@ Phase gate:
 
 参照: spec.md §5.1、§5.2、§6.3〜§6.7、§7.3、§10.3、§11 Phase 3
 
-- [ ] ToolSpec、ToolResult、tool registryを実装する。
-- [ ] list_repo_tree、read_file、search_codeを接続する。
-- [ ] inspect_llm_calls、inspect_tooling、trace_call_graphを接続する。
-- [ ] inspect_git_provenance、inspect_github_metadata、inspect_tests、inspect_concept_lineageを接続する。
-- [ ] finish_auditとENOUGH_EVIDENCE / INSUFFICIENT_EVIDENCEを接続する。
-- [ ] Agent state、hypothesis、unknown、visited file、observation、action history、budgetを実装する。
-- [ ] system promptへUNTRUSTED REPOSITORY CONTENT境界を入れる。
-- [ ] action JSONをstrict validatorへ通す。
-- [ ] path、range、tool、budget、evidence IDのsemantic guardを作る。
-- [ ] schema error時のエラー付き1回retryを作る。
-- [ ] 無効出力後に固定sequenceへfallbackしない。
-- [ ] audit_trace.jsonlとcurrent state snapshotを保存する。
+- [x] ToolSpec、ToolResult、tool registryを実装する。
+- [x] list_repo_tree、read_file、search_codeを接続する。
+- [x] inspect_llm_calls、inspect_tooling、trace_call_graphを接続する。
+- [x] inspect_git_provenance、inspect_github_metadata、inspect_tests、inspect_concept_lineageを接続する。
+- [x] finish_auditとENOUGH_EVIDENCE / INSUFFICIENT_EVIDENCEを接続する。
+- [x] Agent state、hypothesis、unknown、visited file、observation、action history、budgetを実装する。
+- [x] system promptへUNTRUSTED REPOSITORY CONTENT境界を入れる。
+- [x] action JSONをstrict validatorへ通す。
+- [x] path、range、tool、budget、evidence IDのsemantic guardを作る。
+- [x] schema error時のエラー付き1回retryを作る。
+- [x] 無効出力後に固定sequenceへfallbackしない。
+- [x] audit_trace.jsonlとcurrent state snapshotを保存する。
 
 検証:
 
-- MockModelProviderでREADME始動、search始動、provenance始動など複数sequenceを通す。
-- observationの内容を変えると、次のmodel-selected toolが変わるfixtureを通す。
-- unknown evidence ID、存在しないpath、line mismatch、range違反、未知toolを拒否する。
-- ENOUGH_EVIDENCEの不足項目をcontrollerが拒否し、budget内なら再探索する。
-- budget枯渇時にINSUFFICIENT_EVIDENCEになる。
-- prompt injection fixtureの命令を実行しない。
+- [x] MockModelProviderでREADME始動、search始動、provenance始動など複数sequenceを通す。
+- [x] observationの内容を変えると、次のmodel-selected toolが変わるfixtureを通す。
+- [x] unknown evidence ID、存在しないpath、line mismatch、range違反、未知toolを拒否する。
+- [x] ENOUGH_EVIDENCEの不足項目をcontrollerが拒否し、budget内なら再探索する。
+- [x] budget枯渇時にINSUFFICIENT_EVIDENCEになる。
+- [x] prompt injection fixtureの命令を実行しない。
 
 Phase gate:
 
@@ -139,26 +141,26 @@ Phase gate:
 
 参照: spec.md §8、§9、§13、§11 Phase 4
 
-- [ ] FactGraphからsubfactorを算出する。
-- [ ] 7軸のscore calculatorを実装する。
-- [ ] score 0とUnknownを分ける。
-- [ ] AI-assisted developmentとAgentic runtimeを別々に判定する。
-- [ ] MCP/tooling、Formal GitHub fork、Derived conceptを別々に判定する。
-- [ ] Markdownの7軸score表と5判定欄を実装する。
-- [ ] JSON schemaとreport.jsonを実装する。
-- [ ] evidence一覧、unknowns、coverage、trace参照を実装する。
-- [ ] report lintをfail-closedで実装する。
-- [ ] fixtureごとのgolden reportを作る。
+- [x] FactGraphからsubfactorを算出する。
+- [x] 7軸のscore calculatorを実装する。
+- [x] score 0とUnknownを分ける。
+- [x] AI-assisted developmentとAgentic runtimeを別々に判定する。
+- [x] MCP/tooling、Formal GitHub fork、Derived conceptを別々に判定する。
+- [x] Markdownの7軸score表と5判定欄を実装する。
+- [x] JSON schemaとreport.jsonを実装する。
+- [x] evidence一覧、unknowns、coverage、trace参照を実装する。
+- [x] report lintをfail-closedで実装する。
+- [x] fixtureごとのgolden reportを作る。
 
 検証:
 
-- scoreの上下限、null、state、confidenceを検査する。
-- modelが返したscoreを使わず、domain calculatorの値だけがreportへ入ることを確認する。
-- 各score/classificationに少なくとも一つの検証済みfile:lineがあることを確認する。
-- AI co-authorだけのfixtureがAgentic runtime=Noになる。
-- MCP-only fixtureがMCP/tooling=YesでもAgentic runtime=NoまたはUnknownになる。
-- fork API unavailableがFormal GitHub fork=Unknownになる。
-- Karpathy/autoresearchの明示creditがDerived concept=Yesになる。
+- [x] scoreの上下限、null、state、confidenceを検査する。
+- [x] modelが返したscoreを使わず、domain calculatorの値だけがreportへ入ることを確認する。
+- [x] 各score/classificationに少なくとも一つの検証済みfile:lineがあることを確認する。
+- [x] AI co-authorだけのfixtureがAgentic runtime=Noになる。
+- [x] MCP-only fixtureがMCP/tooling=YesでもAgentic runtime=NoまたはUnknownになる。
+- [x] fork API unavailableがFormal GitHub fork=Unknownになる。
+- [x] Karpathy/autoresearchの明示creditがDerived concept=Yesになる。
 
 Phase gate:
 
@@ -170,21 +172,21 @@ Phase gate:
 
 参照: spec.md §2、§7.3、§9.3、§10、§11 Phase 5
 
-- [ ] path traversal、absolute path、symlink escapeを拒否する。
-- [ ] malformed UTF-8、巨大行、巨大output、巨大repositoryを制限する。
-- [ ] GitHub timeout、rate limit、partial clone、API errorを検証する。
-- [ ] model出力の捏造path、捏造evidence ID、range違反を評価全体Unknownにする。
-- [ ] scoreのclampが存在しないことを静的検査する。
-- [ ] prompt injection、秘密文字列、悪意あるREADMEを検証する。
-- [ ] run manifestへ対象SHA、model SHA、runtime version、schema version、prompt versionを保存する。
-- [ ] 同じsnapshotとseedで再監査し、許容差分を定義する。
+- [x] path traversal、absolute path、symlink escapeを拒否する。
+- [x] malformed UTF-8、巨大行、巨大output、巨大repositoryを制限する。
+- [x] GitHub timeout、rate limit、partial clone、API errorを検証する。
+- [ ] model出力の捏造path、捏造evidence ID、range違反を評価全体Unknownにする（lintでfail-closedは確認済み、Unknown変換は未完了）。
+- [x] scoreのclampが存在しないことを静的検査する。
+- [x] prompt injection、秘密文字列、悪意あるREADMEを検証する。
+- [x] run manifestへ対象SHA、model SHA、runtime version、schema version、prompt versionを保存する。
+- [x] 同じsnapshotとseedで再監査し、許容差分を定義する。
 - [ ] model weightsとllama.cpp runtimeをrelease bundleへ同梱する。
 
 検証:
 
-- 対象repoのコード・テスト・ビルドが実行されない。
-- APIやcloneの一時障害がNoへ化けない。
-- 同一入力のartifact差分が時刻などの許容項目以外で一致する。
+- [x] 対象repoのコード・テスト・ビルドが実行されない。
+- [x] APIやcloneの一時障害がNoへ化けない。
+- [x] 同一入力のartifact差分が時刻などの許容項目以外で一致する。
 
 Phase gate:
 
@@ -195,18 +197,18 @@ Phase gate:
 参照: spec.md §4.1、§11 Phase 6、§13、§14
 
 - [ ] clean environmentを用意する。
-- [ ] URL以外の入力なしでローカルモデルが起動することを確認する。
-- [ ] https://github.com/eightman999/autoresearch-naval を監査する。
-- [ ] traceでREADME、LLM/API、tool/MCP、planner/loop/state/retry、model action、Git provenance、fork、co-author、derived concept、testsの調査を確認する。
-- [ ] report.md、report.json、audit_trace.jsonlの存在と内容を確認する。
-- [ ] 全score/classificationにfile:lineがあることを確認する。
-- [ ] AgentScope自身のrepositoryを監査する。
-- [ ] P0以外の機能を実装へ混入させていないことをgit diffで確認する。
+- [x] URL以外の入力なしでローカルモデルが起動することを確認する（現環境で確認、clean environmentは未確認）。
+- [x] https://github.com/eightman999/autoresearch-naval を監査する。
+- [x] traceでREADME、LLM/API、tool/MCP、planner/loop/state/retry、model action、Git provenance、fork、co-author、derived concept、testsの調査を確認する。
+- [x] report.md、report.json、audit_trace.jsonlの存在と内容を確認する。
+- [x] 全score/classificationにfile:lineがあることを確認する。
+- [x] AgentScope自身のrepositoryを監査する。
+- [x] P0以外の機能を実装へ混入させていないことをgit diffで確認する。
 
 Phase gate:
 
-- URL一つでP0のDoDを完走する。
-- 失敗・不足証拠の場合も、INSUFFICIENT_EVIDENCEと制限が出る。
+- [x] URL一つでP0のDoDを完走する（現環境のtarget demo）。
+- [x] 失敗・不足証拠の場合も、INSUFFICIENT_EVIDENCEと制限が出る。
 - 内蔵モデル、runtime、license、checksumがrelease artifactで確認できる。
 
 ## 2. 予定ファイル
