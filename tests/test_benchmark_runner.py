@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
+from agentscope.acquisition.artifacts import ArtifactStore
 from agentscope.benchmark.runner import (
     BenchmarkRunError,
     load_predictions,
@@ -124,6 +128,37 @@ class BenchmarkRunnerTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(BenchmarkRunError, "escapes benchmark run"):
                 load_predictions(results)
+
+    def test_relative_output_registers_absolute_audit_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = self._dataset(root)
+            previous_cwd = Path.cwd()
+            os.chdir(root)
+            try:
+                def fake_audit_url(*args: object, **kwargs: object) -> SimpleNamespace:
+                    output_base = kwargs["output_base"]
+                    assert isinstance(output_base, Path)
+                    artifacts = ArtifactStore.create(output_base, "fixture-agent-0123456789ab")
+                    report = {"subject": {"commit_sha": SHA}}
+                    artifacts.write_json("report.json", report)
+                    return SimpleNamespace(
+                        artifacts=artifacts,
+                        report=report,
+                    )
+
+                with patch("agentscope.benchmark.runner.audit_url", fake_audit_url):
+                    result = run_benchmark(dataset, Path("run"))
+            finally:
+                os.chdir(previous_cwd)
+
+            self.assertEqual(result["completed_n"], 1)
+            row = json.loads((root / "run" / "results.jsonl").read_text(encoding="utf-8"))
+            self.assertEqual(row["status"], "completed")
+            self.assertEqual(
+                row["report_path"],
+                "artifacts/fixture-agent-0123456789ab/report.json",
+            )
 
 
 if __name__ == "__main__":

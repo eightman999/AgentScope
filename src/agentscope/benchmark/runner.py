@@ -197,6 +197,10 @@ def run_benchmark(
             "dry_run": True,
         }
 
+    # ArtifactStoreは安全境界のため絶対pathを返す。呼び出し側が
+    # `benchmarks/runs/...` のような相対outputを指定しても、report登録時の
+    # relative_to()が同じrootを参照するよう、実行開始時に正規化する。
+    output_dir = output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     _ensure_manifest(
         output_dir=output_dir,
