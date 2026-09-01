@@ -65,6 +65,18 @@ def is_runtime_path(path: str) -> bool:
     normalized = path.replace("\\", "/").strip("/").lower()
     parts = set(normalized.split("/"))
     name = Path(normalized).name
+    if Path(name).suffix in {
+        ".md",
+        ".mdx",
+        ".rst",
+        ".txt",
+        ".ipynb",
+        ".json",
+        ".toml",
+        ".yaml",
+        ".yml",
+    } or name in {"readme", "license", "copying", "changelog"}:
+        return False
     if name.startswith("test_") or name.endswith("_test.py"):
         return False
     if parts & {

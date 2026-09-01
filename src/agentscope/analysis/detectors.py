@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from agentscope.acquisition.git_snapshot import Snapshot, SnapshotLimits
 from agentscope.analysis.inventory import Inventory
+from agentscope.analysis.path_priority import is_runtime_path
 from agentscope.analysis.search import SearchHit, search_code
 
 
@@ -97,6 +98,16 @@ def detect(
                 break
         if len(hits) >= max_hits:
             break
+    if category == "tooling":
+        # README、notebook、exampleの単語やコメントだけでtool surfaceを
+        # 作らない。実行可能なruntime候補がある場合だけpositive evidenceにする。
+        hits = [
+            hit
+            for hit in hits
+            if is_runtime_path(hit.path) and not hit.text.lstrip().startswith(
+                ("#", "//", "/*", "*", "<!--")
+            )
+        ]
     return DetectorResult(
         category=category,
         hits=hits,

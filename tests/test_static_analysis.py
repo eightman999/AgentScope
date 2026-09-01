@@ -7,6 +7,7 @@ from pathlib import Path
 from agentscope.acquisition.artifacts import ArtifactStore
 from agentscope.acquisition.git_snapshot import SnapshotLimits, local_snapshot
 from agentscope.analysis.control_flow import rank_code_records, trace_call_graph
+from agentscope.analysis.detectors import detect
 from agentscope.analysis.inventory import FileRecord, build_inventory
 from agentscope.analysis.search import search_code
 from agentscope.domain.evidence import EvidenceLedger
@@ -155,6 +156,14 @@ class StaticAnalysisTests(unittest.TestCase):
             hits = search_code(snapshot, inventory, "needle")
             self.assertEqual(len(hits), 1)
             self.assertEqual(hits[0].text, source_line)
+
+    def test_tooling_detector_ignores_docs_notebooks_and_comment_only_hits(self) -> None:
+        snapshot = local_snapshot(fixture("comment_keywords_only"), commit_sha="fixture-sha")
+        inventory = build_inventory(snapshot)
+
+        result = detect(snapshot, inventory, "tooling")
+
+        self.assertEqual(result.hits, [])
 
 
 if __name__ == "__main__":
