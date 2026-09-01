@@ -9,6 +9,7 @@ from agentscope.acquisition.artifacts import ArtifactStore
 from agentscope.analysis.provenance import ProvenanceFacts
 from agentscope.domain.evidence import EvidenceLedger
 from agentscope.domain.facts import FactGraph
+from agentscope.domain.unknowns import model_output_integrity_evidence_ids
 from agentscope.domain.scoring import _coverage_evidence
 
 
@@ -69,6 +70,23 @@ def calculate_classifications(
     commit_sha: str,
     facts: dict[str, Any],
 ) -> list[Classification]:
+    if facts.get("evaluation_unknown"):
+        evidence_ids = model_output_integrity_evidence_ids(
+            ledger=ledger,
+            artifacts=artifacts,
+            commit_sha=commit_sha,
+            reason="Model output integrity failure propagated to every classification.",
+        )
+        return [
+            Classification(
+                key,
+                "unknown",
+                "unknown",
+                "モデル出力の整合性を検証できないため、この判定はUnknownです。",
+                evidence_ids,
+            )
+            for key in CLASSIFICATION_KEYS
+        ]
     result: list[Classification] = []
     provenance = facts.get("provenance")
     ai_signals = facts.get("ai_signals") or []

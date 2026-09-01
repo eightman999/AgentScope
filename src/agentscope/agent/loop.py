@@ -10,8 +10,9 @@ from agentscope.acquisition.artifacts import ArtifactStore
 from agentscope.agent.action import Action, ActionValidationError, parse_action
 from agentscope.agent.policy import check_finish, missing_capabilities
 from agentscope.agent.prompt import build_model_context
-from agentscope.agent.tools import AuditToolContext, ToolRegistry
+from agentscope.agent.tools import AuditToolContext, ToolRegistry, ToolValidationError
 from agentscope.domain.state import ActionRecord
+from agentscope.domain.unknowns import add_model_output_integrity_evidence
 from agentscope.model.provider import ModelContext, ModelProvider, ModelProviderError
 
 
@@ -64,11 +65,52 @@ class AgentLoop:
             )
         return model_context
 
+    def _mark_evaluation_unknown(self, reason: str) -> None:
+        safe_reason = " ".join(str(reason).split())[:500]
+        evidence_id = add_model_output_integrity_evidence(
+            ledger=self.context.ledger,
+            artifacts=self.artifacts,
+            commit_sha=self.context.state.commit_sha,
+            reason=safe_reason,
+        )
+        self.context.facts["evaluation_unknown"] = True
+        evidence_ids = self.context.facts.setdefault(
+            "evaluation_unknown_evidence_ids", []
+        )
+        if evidence_id not in evidence_ids:
+            evidence_ids.append(evidence_id)
+        unknown = f"Model output integrity failure: {safe_reason}"
+        if unknown not in self.context.state.unknowns:
+            self.context.state.unknowns.append(unknown)
+
+    @staticmethod
+    def _has_suspicious_evaluation_fields(raw: Any) -> bool:
+        candidate = raw
+        if isinstance(raw, str):
+            try:
+                candidate = json.loads(raw)
+            except json.JSONDecodeError:
+                return False
+        if not isinstance(candidate, dict):
+            return False
+        return bool(
+            set(candidate)
+            & {
+                "evidence_id",
+                "evidence_ids",
+                "score",
+                "scores",
+                "classification",
+                "classifications",
+            }
+        )
+
     def _call_and_validate(self) -> Action | None:
         base_context = self._model_context()
         try:
             raw = self.provider.complete_action(base_context)
         except ModelProviderError as exc:
+            self._mark_evaluation_unknown(f"model provider failed: {exc}")
             self._event(
                 {
                     "event": "model_error",
@@ -82,6 +124,21 @@ class AgentLoop:
         try:
             action = parse_action(raw)
         except ActionValidationError as exc:
+            if self._has_suspicious_evaluation_fields(raw):
+                self._mark_evaluation_unknown(
+                    f"model action contained evaluation fields rejected by schema: {exc}"
+                )
+                self.context.state.termination = "INSUFFICIENT_EVIDENCE"
+                self.context.state.status = "completed"
+                self._event(
+                    {
+                        "event": "model_output_integrity_rejected",
+                        "step": len(self.context.state.action_history) + 1,
+                        "attempt": 1,
+                        "error": str(exc),
+                    }
+                )
+                return None
             self._event(
                 {
                     "event": "model_action_rejected",
@@ -99,6 +156,9 @@ class AgentLoop:
             try:
                 retry_raw = self.provider.complete_action(retry_context)
             except ModelProviderError as retry_exc:
+                self._mark_evaluation_unknown(
+                    f"model provider failed after schema retry: {retry_exc}"
+                )
                 self._event(
                     {
                         "event": "model_error",
@@ -113,6 +173,9 @@ class AgentLoop:
             try:
                 action = parse_action(retry_raw)
             except ActionValidationError as retry_exc:
+                self._mark_evaluation_unknown(
+                    f"model action remained invalid after one retry: {retry_exc}"
+                )
                 self._event(
                     {
                         "event": "model_action_rejected",
@@ -266,6 +329,25 @@ class AgentLoop:
                         )
                     self._persist()
                     continue
+            except ToolValidationError as exc:
+                result_text = f"tool failed: {type(exc).__name__}: {exc}"
+                self._mark_evaluation_unknown(
+                    f"model selected invalid tool arguments: {exc}"
+                )
+                self.context.state.add_observation(result_text)
+                self._event(
+                    {
+                        "event": "model_output_integrity_rejected",
+                        "step": step,
+                        "tool": action.tool,
+                        "error": result_text,
+                    }
+                )
+                self._record_action(step=step, action=action, result=result_text)
+                self.context.state.termination = "INSUFFICIENT_EVIDENCE"
+                self.context.state.status = "completed"
+                self._persist()
+                break
             except Exception as exc:
                 result_text = f"tool failed: {type(exc).__name__}: {exc}"
                 self.context.state.add_observation(result_text)

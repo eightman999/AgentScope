@@ -75,8 +75,13 @@ class ToolRegistry:
             raise ToolValidationError(f"unknown tool: {name}") from exc
         if not isinstance(arguments, dict):
             raise ToolValidationError("tool arguments must be an object")
-        spec.argument_validator(arguments)
-        return spec.handler(arguments)
+        try:
+            spec.argument_validator(arguments)
+            return spec.handler(arguments)
+        except ToolValidationError:
+            raise
+        except ValueError as exc:
+            raise ToolValidationError(f"tool arguments were rejected: {exc}") from exc
 
 
 @dataclass

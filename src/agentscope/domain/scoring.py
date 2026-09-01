@@ -10,6 +10,7 @@ from agentscope.analysis.provenance import ProvenanceFacts
 from agentscope.analysis.verification import VerificationFacts
 from agentscope.domain.evidence import EvidenceLedger
 from agentscope.domain.facts import FactGraph
+from agentscope.domain.unknowns import model_output_integrity_evidence_ids
 
 
 SCORE_KEYS = (
@@ -143,6 +144,24 @@ def calculate_scores(
     commit_sha: str,
     facts: dict[str, Any],
 ) -> list[ScoreItem]:
+    if facts.get("evaluation_unknown"):
+        evidence_ids = model_output_integrity_evidence_ids(
+            ledger=ledger,
+            artifacts=artifacts,
+            commit_sha=commit_sha,
+            reason="Model output integrity failure propagated to every score axis.",
+        )
+        return [
+            _item(
+                key=key,
+                score=None,
+                state="unknown",
+                confidence="unknown",
+                rationale="モデル出力の整合性を検証できないため、この評価軸はUnknownです。",
+                evidence_ids=evidence_ids,
+            )
+            for key in SCORE_KEYS
+        ]
     items: list[ScoreItem] = []
 
     metadata = facts.get("github_metadata")
