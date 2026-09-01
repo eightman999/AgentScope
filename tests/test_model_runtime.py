@@ -53,7 +53,16 @@ class ModelRuntimeTests(unittest.TestCase):
             )
             self.assertIn("toolcall ::= toolread | toolsearch", readme_after_inventory)
             self.assertNotIn('"list_repo_tree"', readme_after_inventory)
-            self.assertIn('"\\\"src/main.py\\\""', readme_after_inventory)
+            self.assertNotIn('"\\\"src/main.py\\\""', readme_after_inventory)
+
+            visited_read_grammar = provider._filtered_tool_grammar(
+                ["readme", "llm_calls"],
+                include_list_repo_tree=False,
+                readable_paths=["README.md", "src/main.py"],
+                visited_paths=["README.md"],
+            )
+            self.assertNotIn('"\\\"README.md\\\""', visited_read_grammar)
+            self.assertNotIn("toolread", visited_read_grammar.splitlines()[1])
 
             llm_grammar = provider._filtered_tool_grammar(["llm_calls"])
             self.assertIn("toolcall ::= toolplain", llm_grammar)

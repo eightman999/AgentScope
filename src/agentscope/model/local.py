@@ -85,6 +85,7 @@ class LocalLlamaCppProvider:
                 missing_capabilities,
                 include_list_repo_tree=not inventory_seen,
                 readable_paths=context.state.get("readable_paths"),
+                visited_paths=context.state.get("visited_files"),
             )
             selected_grammar = None
         elif self.finish_grammar_path and not missing_capabilities:
@@ -143,6 +144,7 @@ class LocalLlamaCppProvider:
         *,
         include_list_repo_tree: bool = True,
         readable_paths: object = None,
+        visited_paths: object = None,
     ) -> str:
         if not self.tool_grammar_path or not self.tool_grammar_path.is_file():
             raise ModelProviderError("tool action grammar could not be read")
@@ -159,6 +161,19 @@ class LocalLlamaCppProvider:
             "verification": {"inspect_tests"},
             "concept_lineage": {"inspect_concept_lineage"},
         }
+        path_candidates: list[str] | None = None
+        if isinstance(readable_paths, list):
+            paths = [
+                item
+                for item in readable_paths[:120]
+                if isinstance(item, str) and item and "\n" not in item
+            ]
+            visited = {
+                item
+                for item in (visited_paths if isinstance(visited_paths, list) else [])
+                if isinstance(item, str)
+            }
+            path_candidates = [item for item in paths if item not in visited]
         allowed: set[str] = set()
         for capability in missing_capabilities:
             if isinstance(capability, str):
@@ -167,6 +182,18 @@ class LocalLlamaCppProvider:
             allowed.add("search_code")
             if include_list_repo_tree:
                 allowed.add("list_repo_tree")
+            if path_candidates is not None:
+                readme_paths = [
+                    item
+                    for item in path_candidates
+                    if item.rsplit("/", 1)[-1].lower().startswith("readme")
+                ]
+                if readme_paths:
+                    path_candidates = readme_paths
+                else:
+                    allowed.discard("read_file")
+        if path_candidates is not None and not path_candidates:
+            allowed.discard("read_file")
         if not allowed:
             raise ModelProviderError("no model tool is eligible for the missing capabilities")
         grammar = self.tool_grammar_path.read_text(encoding="utf-8")
@@ -203,26 +230,20 @@ class LocalLlamaCppProvider:
             )
             if plain_count != 1:
                 raise ModelProviderError("tool grammar did not contain plainname rule")
-        if isinstance(readable_paths, list):
-            paths = [
-                item
-                for item in readable_paths[:120]
-                if isinstance(item, str) and item and "\n" not in item
-            ]
-            if paths:
-                path_literals = " | ".join(
-                    _gbnf_json_string(path)
-                    for path in paths
-                )
-                grammar, path_count = re.subn(
-                    r"^readargs ::= .*?$",
-                    'readargs ::= "{" ws "\\\"path\\\"" ws ":" ws pathvalue ws "}"\n'
-                    + "pathvalue ::= "
-                    + path_literals,
-                    grammar,
-                    count=1,
-                    flags=re.MULTILINE,
-                )
-                if path_count != 1:
-                    raise ModelProviderError("tool grammar did not contain readargs rule")
+        if path_candidates and "read_file" in allowed:
+            path_literals = " | ".join(
+                _gbnf_json_string(path)
+                for path in path_candidates
+            )
+            grammar, path_count = re.subn(
+                r"^readargs ::= .*?$",
+                'readargs ::= "{" ws "\\\"path\\\"" ws ":" ws pathvalue ws "}"\n'
+                + "pathvalue ::= "
+                + path_literals,
+                grammar,
+                count=1,
+                flags=re.MULTILINE,
+            )
+            if path_count != 1:
+                raise ModelProviderError("tool grammar did not contain readargs rule")
         return grammar
