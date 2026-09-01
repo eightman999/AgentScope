@@ -1,0 +1,7 @@
+root ::= finish
+finish ::= "{" ws "\"kind\"" ws ":" ws "\"finish\"" ws "," ws "\"decision\"" ws ":" ws decision ws "," ws "\"reason\"" ws ":" ws string ws "," ws "\"missing_unknowns\"" ws ":" ws stringarray ws "}"
+decision ::= "\"ENOUGH_EVIDENCE\"" | "\"INSUFFICIENT_EVIDENCE\""
+stringarray ::= "[" ws stringelements? ws "]"
+stringelements ::= string (ws "," ws string)*
+string ::= "\"" ( [^\"\\] | "\\" ( [\"\\/bfnrt] | "u" [0-9a-fA-F]{4} ) )* "\""
+ws ::= [ \t\n\r]*

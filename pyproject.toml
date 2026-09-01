@@ -19,8 +19,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-agentscope = ["resources/*.json"]
+agentscope = ["resources/*.json", "resources/*.gbnf"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-

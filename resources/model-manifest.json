@@ -1,15 +1,17 @@
 {
   "schema_version": "0.1",
-  "model_id": "Qwen/Qwen3-0.6B",
-  "artifact": "qwen3-0.6b-q4_k_m.gguf",
+  "model_id": "Qwen/Qwen3-0.6B-GGUF",
+  "artifact": "Qwen3-0.6B-Q8_0.gguf",
   "format": "GGUF",
-  "quantization": "Q4_K_M",
+  "quantization": "Q8_0",
   "runtime": "llama.cpp",
   "license": "Apache-2.0",
-  "license_url": "https://huggingface.co/Qwen/Qwen3-0.6B",
-  "source_url": "https://huggingface.co/Qwen/Qwen3-0.6B",
+  "license_url": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF",
+  "source_url": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF",
+  "artifact_url": "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q8_0.gguf",
+  "model_size_bytes": 639446688,
   "weights_in_source_control": false,
   "release_bundle_required": true,
-  "model_sha256": null,
+  "model_sha256": "9465e63a22add5354d9bb4b99e90117043c7124007664907259bd16d043bb031",
   "artifact_status": "release_asset_required"
 }

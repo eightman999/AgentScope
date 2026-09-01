@@ -160,7 +160,7 @@ def calculate_scores(
     elif fork_value is False and isinstance(provenance, ProvenanceFacts) and provenance.available:
         originality = (7.0, "confirmed", "medium", "No formal fork was reported and bounded Git provenance was available.")
     elif isinstance(provenance, ProvenanceFacts) and provenance.available:
-        originality = (5.0, "unknown", "low", "Git provenance exists but formal fork metadata is unavailable.")
+        originality = (None, "unknown", "low", "Git provenance exists but formal fork metadata is unavailable.")
     else:
         originality = (None, "unknown", "unknown", "Formal lineage and provenance could not be established.")
     items.append(

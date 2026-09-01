@@ -31,6 +31,17 @@ def build_model_context(
     facts: dict[str, Any],
 ) -> ModelContext:
     bounded_observations = observations[-8:]
+    bounded_state = dict(state)
+    action_history = state.get("action_history")
+    if isinstance(action_history, list):
+        bounded_history: list[Any] = []
+        for item in action_history[-6:]:
+            if isinstance(item, dict):
+                bounded_item = dict(item)
+                if isinstance(bounded_item.get("result"), str):
+                    bounded_item["result"] = bounded_item["result"][:500]
+                bounded_history.append(bounded_item)
+        bounded_state["action_history"] = bounded_history
     bounded_facts = {
         key: value
         for key, value in facts.items()
@@ -39,13 +50,18 @@ def build_model_context(
     prompt = (
         SYSTEM_INSTRUCTIONS
         + "\n\nCURRENT AUDIT STATE:\n"
-        + json.dumps(state, ensure_ascii=False, sort_keys=True, indent=2, default=str)
+        + json.dumps(bounded_state, ensure_ascii=False, sort_keys=True, indent=2, default=str)
         + "\n\nCAPABILITY FACTS:\n"
         + json.dumps(bounded_facts, ensure_ascii=False, sort_keys=True, indent=2, default=str)
         + "\n\nAVAILABLE TOOLS:\n"
         + json.dumps(tool_catalog, ensure_ascii=False, sort_keys=True, indent=2)
         + "\n\nOBSERVATIONS FROM UNTRUSTED REPOSITORY CONTENT:\n"
         + "\n---\n".join(bounded_observations)
+        + "\n\nDECISION RULES:\n"
+        + "- missing_capabilitiesが1つでもあればENOUGH_EVIDENCEを絶対に選ばず、最も価値の高い未調査toolを選ぶ。\n"
+        + "- 初回はread_fileでREADME.mdを読む。既読なら観測に応じてsearch_codeまたは専用inspect/trace toolを選ぶ。\n"
+        + "- 必須領域を調査し、budgetが尽きそうまたは証拠不足ならINSUFFICIENT_EVIDENCEを選ぶ。\n"
+        + "- Do not claim that a capability was inspected unless CURRENT AUDIT STATE records it.\n"
         + "\n\nReturn exactly one JSON object with kind tool_call or finish."
     )
     return ModelContext(

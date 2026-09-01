@@ -1,0 +1,14 @@
+root ::= toolcall
+toolcall ::= toolread | toolsearch | tooltrace | toolplain
+toolread ::= "{" ws "\"kind\"" ws ":" ws "\"tool_call\"" ws "," ws "\"tool\"" ws ":" ws "\"read_file\"" ws "," ws "\"arguments\"" ws ":" ws readargs ws "," ws "\"hypothesis\"" ws ":" ws string ws "," ws "\"focus\"" ws ":" ws stringarray ws "}"
+toolsearch ::= "{" ws "\"kind\"" ws ":" ws "\"tool_call\"" ws "," ws "\"tool\"" ws ":" ws "\"search_code\"" ws "," ws "\"arguments\"" ws ":" ws searchargs ws "," ws "\"hypothesis\"" ws ":" ws string ws "," ws "\"focus\"" ws ":" ws stringarray ws "}"
+tooltrace ::= "{" ws "\"kind\"" ws ":" ws "\"tool_call\"" ws "," ws "\"tool\"" ws ":" ws "\"trace_call_graph\"" ws "," ws "\"arguments\"" ws ":" ws traceargs ws "," ws "\"hypothesis\"" ws ":" ws string ws "," ws "\"focus\"" ws ":" ws stringarray ws "}"
+toolplain ::= "{" ws "\"kind\"" ws ":" ws "\"tool_call\"" ws "," ws "\"tool\"" ws ":" ws plainname ws "," ws "\"arguments\"" ws ":" ws "{" ws "}" ws "," ws "\"hypothesis\"" ws ":" ws string ws "," ws "\"focus\"" ws ":" ws stringarray ws "}"
+plainname ::= "\"inspect_llm_calls\"" | "\"inspect_tooling\"" | "\"inspect_git_provenance\"" | "\"inspect_github_metadata\"" | "\"inspect_tests\"" | "\"inspect_concept_lineage\"" | "\"list_repo_tree\""
+readargs ::= "{" ws "\"path\"" ws ":" ws string ws "}"
+searchargs ::= "{" ws "\"query\"" ws ":" ws string ws "}"
+traceargs ::= "{" ws "}"
+stringarray ::= "[" ws stringelements? ws "]"
+stringelements ::= string (ws "," ws string)*
+string ::= "\"" ( [^\"\\] | "\\" ( [\"\\/bfnrt] | "u" [0-9a-fA-F]{4} ) )* "\""
+ws ::= [ \t\n\r]*

@@ -45,11 +45,15 @@ class AgentLoop:
         self._persist()
 
     def _model_context(self, prompt_suffix: str = "") -> ModelContext:
+        facts = dict(self.context.facts)
+        facts["missing_capabilities"] = missing_capabilities(self.context.facts)
+        state = self.context.state.to_dict()
+        state["missing_capabilities"] = facts["missing_capabilities"]
         model_context = build_model_context(
-            state=self.context.state.to_dict(),
+            state=state,
             tool_catalog=self.registry.catalog(),
             observations=self.context.state.observations,
-            facts=self.context.facts,
+            facts=facts,
         )
         if prompt_suffix:
             return ModelContext(

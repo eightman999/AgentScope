@@ -73,8 +73,13 @@ def _model_provider(resource_root: Path) -> tuple[ModelProvider, str, str | None
         model_path=model_path,
         manifest=manifest,
         schema_path=schema_path,
+        grammar_path=resource_root / "action-grammar.gbnf",
+        tool_grammar_path=resource_root / "tool-action-grammar.gbnf",
+        finish_grammar_path=resource_root / "finish-action-grammar.gbnf",
     )
     model_sha256 = _sha256(model_path)
+    if model_path.stat().st_size != manifest.model_size_bytes:
+        raise ModelProviderError("local model size does not match the manifest")
     if manifest.model_sha256 and manifest.model_sha256.lower() != model_sha256:
         raise ModelProviderError("local model checksum does not match the manifest")
     return provider, manifest.model_id, model_sha256, manifest.runtime
@@ -166,6 +171,9 @@ def audit_snapshot(
             "schema_version": "0.1",
             "prompt_version": PROMPT_VERSION,
             "action_schema_sha256": _optional_sha256(resource_root / "action-schema.json"),
+            "action_grammar_sha256": _optional_sha256(resource_root / "action-grammar.gbnf"),
+            "tool_action_grammar_sha256": _optional_sha256(resource_root / "tool-action-grammar.gbnf"),
+            "finish_action_grammar_sha256": _optional_sha256(resource_root / "finish-action-grammar.gbnf"),
             "report_schema_sha256": _optional_sha256(resource_root / "report-schema.json"),
             "subject": {
                 "input_url": raw_url,
