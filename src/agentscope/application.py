@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -183,8 +184,10 @@ def audit_snapshot(
     engine: str = "mock",
     runtime_version: str | None = None,
     git_runner: Callable[..., object] | None = None,
+    audited_at: str | None = None,
 ) -> AuditResult:
     limits = limits or SnapshotLimits()
+    audited_at = audited_at or datetime.now(timezone.utc).isoformat()
     context, _ = _prepare_context(
         raw_url=raw_url,
         ref=ref,
@@ -211,6 +214,7 @@ def audit_snapshot(
                 "canonical_url": ref.canonical_url,
                 "commit_sha": snapshot.commit_sha,
                 "snapshot_coverage": snapshot.coverage,
+                "audited_at": audited_at,
             },
             "runtime": {
                 "model_id": model_id,
@@ -252,6 +256,7 @@ def audit_snapshot(
         model_sha256=model_sha256,
         engine=engine,
         runtime_version=runtime_version,
+        audited_at=audited_at,
         snapshot_coverage=snapshot.coverage,
     )
     lint_report(
@@ -306,6 +311,7 @@ def audit_local_directory(
     engine: str = "mock",
     runtime_version: str | None = None,
     git_runner: Callable[..., object] | None = None,
+    audited_at: str | None = None,
 ) -> AuditResult:
     ref = parse_github_url(raw_url)
     store = artifacts or ArtifactStore.create(default_artifact_base(), _run_id(ref))
@@ -323,4 +329,5 @@ def audit_local_directory(
         engine=engine,
         runtime_version=runtime_version,
         git_runner=git_runner,
+        audited_at=audited_at,
     )

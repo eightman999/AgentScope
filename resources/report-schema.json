@@ -11,16 +11,41 @@
     "classifications",
     "evidence",
     "unknowns",
+    "hypotheses",
+    "tool_sequence",
     "action_trace_ref"
   ],
   "properties": {
     "schema_version": {"type": "string"},
-    "subject": {"type": "object"},
+    "subject": {
+      "type": "object",
+      "required": ["input_url", "canonical_url", "commit_sha", "snapshot_coverage", "audited_at"],
+      "properties": {
+        "input_url": {"type": "string"},
+        "canonical_url": {"type": "string"},
+        "commit_sha": {"type": "string"},
+        "snapshot_coverage": {"type": "string"},
+        "audited_at": {"type": "string"}
+      }
+    },
     "runtime": {"type": "object"},
     "scores": {"type": "array"},
     "classifications": {"type": "object"},
     "evidence": {"type": "array"},
     "unknowns": {"type": "array"},
+    "hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "status"],
+        "properties": {
+          "id": {"type": "string"},
+          "text": {"type": "string"},
+          "status": {"type": "string"}
+        }
+      }
+    },
+    "tool_sequence": {"type": "array", "items": {"type": "string"}},
     "action_trace_ref": {"type": "string"},
     "fact_graph": {"type": "object"}
   }

@@ -24,7 +24,12 @@ def build_report(
     snapshot_coverage: str,
     runtime_version: str | None = None,
     runtime_error: str | None = None,
+    audited_at: str | None = None,
 ) -> dict[str, Any]:
+    tool_sequence = [
+        record.tool if record.kind == "tool_call" else "finish"
+        for record in state.action_history
+    ]
     return {
         "schema_version": "0.1",
         "subject": {
@@ -32,6 +37,7 @@ def build_report(
             "canonical_url": state.canonical_url,
             "commit_sha": state.commit_sha,
             "snapshot_coverage": snapshot_coverage,
+            "audited_at": audited_at,
         },
         "runtime": {
             "model_id": model_id,
@@ -56,6 +62,11 @@ def build_report(
         },
         "evidence": [item.to_dict() for item in ledger.all()],
         "unknowns": list(dict.fromkeys(state.unknowns)),
+        "hypotheses": [
+            {"id": item.id, "text": item.text, "status": item.status}
+            for item in state.hypotheses
+        ],
+        "tool_sequence": tool_sequence,
         "action_trace_ref": "audit_trace.jsonl",
         "fact_graph": graph.to_dict(),
     }

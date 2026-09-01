@@ -134,7 +134,18 @@ def lint_report(
     snapshot_root: Path,
     artifact_root: Path,
 ) -> None:
-    for key in ("schema_version", "subject", "runtime", "scores", "classifications", "evidence", "unknowns", "action_trace_ref"):
+    for key in (
+        "schema_version",
+        "subject",
+        "runtime",
+        "scores",
+        "classifications",
+        "evidence",
+        "unknowns",
+        "hypotheses",
+        "tool_sequence",
+        "action_trace_ref",
+    ):
         if key not in report:
             raise ReportLintError(f"missing report key: {key}")
     if report["schema_version"] != "0.1":
@@ -142,6 +153,8 @@ def lint_report(
     subject = report["subject"]
     if not isinstance(subject, dict):
         raise ReportLintError("subject must be an object")
+    if not isinstance(subject.get("audited_at"), str) or not subject["audited_at"]:
+        raise ReportLintError("subject.audited_at is required")
     commit_sha = subject.get("commit_sha") if isinstance(subject, dict) else None
     if not isinstance(commit_sha, str) or not commit_sha:
         raise ReportLintError("subject.commit_sha is required")
@@ -153,6 +166,21 @@ def lint_report(
         isinstance(item, str) for item in report["unknowns"]
     ):
         raise ReportLintError("unknowns must be an array of strings")
+    hypotheses = report["hypotheses"]
+    if not isinstance(hypotheses, list) or not all(
+        isinstance(item, dict)
+        and set(item) == {"id", "text", "status"}
+        and isinstance(item["id"], str)
+        and isinstance(item["text"], str)
+        and isinstance(item["status"], str)
+        for item in hypotheses
+    ):
+        raise ReportLintError("hypotheses must contain id, text, and status")
+    tool_sequence = report["tool_sequence"]
+    if not isinstance(tool_sequence, list) or not all(
+        isinstance(item, str) and item for item in tool_sequence
+    ):
+        raise ReportLintError("tool_sequence must be an array of non-empty strings")
     evidence_items = report["evidence"]
     if not isinstance(evidence_items, list):
         raise ReportLintError("evidence must be an array")

@@ -17,9 +17,11 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         f"- 対象: {subject['canonical_url']}",
         f"- commit: {subject['commit_sha']}",
+        f"- audited at: {subject.get('audited_at', 'unknown')}",
         f"- snapshot coverage: {subject['snapshot_coverage']}",
         f"- model: {runtime['model_id']}",
         f"- runtime: {runtime['engine']}",
+        f"- runtime version: {runtime.get('runtime_version') or 'unknown'}",
         f"- termination: {runtime['termination']}",
         "",
         "## 評価score",
@@ -78,7 +80,33 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.extend(f"- {item}" for item in report["unknowns"])
     else:
         lines.append("- なし")
-    lines.extend(["", "## 実行trace", "", f"- 詳細: {report['action_trace_ref']}"])
+    lines.extend(["", "## 仮説", ""])
+    for hypothesis in report.get("hypotheses", []):
+        lines.append(
+            f"- {hypothesis['id']} [{hypothesis['status']}]: {hypothesis['text']}"
+        )
+    lines.extend(["", "## tool sequence", ""])
+    if report.get("tool_sequence"):
+        lines.extend(
+            f"- {index}. {tool}"
+            for index, tool in enumerate(report["tool_sequence"], 1)
+        )
+    else:
+        lines.append("- なし")
+    lines.extend(
+        [
+            "",
+            "## 制限・再現方法",
+            "",
+            f"- snapshot coverage: {subject['snapshot_coverage']}",
+            f"- 再現: `agentscope audit {subject['canonical_url']}`",
+            "- 詳細trace: audit_trace.jsonl、実行条件: run-manifest.json",
+            "",
+            "## 実行trace",
+            "",
+            f"- 詳細: {report['action_trace_ref']}",
+        ]
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -87,4 +115,3 @@ def report_evidence_ref(report: dict[str, Any], evidence_id: str) -> str:
         if item["id"] == evidence_id:
             return item["display_ref"]
     return f"missing-evidence:{evidence_id}"
-

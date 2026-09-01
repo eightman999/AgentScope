@@ -52,6 +52,10 @@ class IntegrationReportTests(unittest.TestCase):
         self.assertTrue(result.artifacts.path("report.md").is_file())
         self.assertTrue(result.artifacts.path("report.json").is_file())
         self.assertTrue(result.artifacts.path("audit_trace.jsonl").is_file())
+        self.assertRegex(report["subject"]["audited_at"], r"^20[0-9]{2}-[0-9]{2}-[0-9]{2}T")
+        self.assertEqual(report["tool_sequence"][-1], "finish")
+        self.assertTrue(report["hypotheses"])
+        self.assertIn("## tool sequence", result.artifacts.path("report.md").read_text(encoding="utf-8"))
         for item in report["scores"]:
             self.assertTrue(item["evidence_ids"])
         for item in report["classifications"].values():
