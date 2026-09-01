@@ -204,6 +204,10 @@ def calculate_scores(
     has_dispatch = graph.has_edge_kind("dispatches")
     has_observation = graph.has_edge_kind("observes")
     has_replan = graph.has_edge_kind("replans")
+    has_controlled_dispatch = graph.has_ordered_edge_path("controls", "dispatches")
+    has_feedback_path = graph.has_ordered_edge_path(
+        "controls", "dispatches", "observes", "replans"
+    )
     trace_ids = _graph_evidence(graph, "controls", "dispatches", "observes", "replans", "model_call")
     if not trace_ids:
         trace_ids = _evidence(
@@ -214,9 +218,9 @@ def calculate_scores(
             prefixes=("trace.",),
             message="No call/data-flow trace was available for Agenticity.",
         )
-    if has_model and has_control and has_dispatch and has_observation and has_replan:
+    if has_feedback_path:
         agenticity = (9.0, "confirmed", "high", "Model control, dispatch, observation, and replanning form one traced path.")
-    elif has_model and has_control and has_dispatch:
+    elif has_controlled_dispatch:
         agenticity = (6.0, "confirmed", "medium", "Model-controlled dispatch is visible, but feedback adaptation is incomplete.")
     elif has_model:
         agenticity = (2.0, "negative", "medium", "A model call exists, but runtime action control is not traced.")
@@ -244,9 +248,9 @@ def calculate_scores(
         message="Dynamic tool-selection evidence was not found.",
     )
     tooling_hits = int(facts.get("tooling_hits", 0) or 0)
-    if has_control and has_dispatch and has_replan and tooling_hits:
+    if has_feedback_path and tooling_hits:
         dynamic = (9.0, "confirmed", "high", "A model-controlled tool dispatch is connected to a replanning path.")
-    elif has_control and has_dispatch:
+    elif has_controlled_dispatch:
         dynamic = (7.0, "confirmed", "medium", "Model-controlled dispatch is traced, but observed variation is not established.")
     elif tooling_hits:
         dynamic = (3.0, "negative", "low", "Tooling candidates exist, but dynamic model selection is not traced.")
@@ -275,7 +279,7 @@ def calculate_scores(
             prefixes=("trace.observation", "trace.replan"),
             message="Feedback adaptation evidence was not found.",
         )
-    if has_observation and has_replan:
+    if has_feedback_path:
         feedback = (9.0, "confirmed", "high", "An observation is connected to a replanning edge.")
     elif has_observation:
         feedback = (3.0, "negative", "medium", "An observation candidate exists without a traced replanning edge.")
@@ -370,7 +374,7 @@ def calculate_scores(
         prefixes=("candidate.tooling", "trace.dispatch", "trace.action_selector"),
         message="Agent tooling evidence was not found.",
     )
-    if tooling_hits and has_dispatch and has_control:
+    if tooling_hits and has_controlled_dispatch:
         agent_tooling = (8.0, "confirmed", "high", "Tool candidates and a model-controlled dispatcher are both traced.")
     elif tooling_hits:
         agent_tooling = (4.0, "confirmed", "low", "A tool surface exists, but agent-controlled dispatch is not established.")

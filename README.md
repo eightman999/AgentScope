@@ -11,7 +11,7 @@ AI-assisted development、Agentic runtime、MCP/tooling、Formal GitHub fork、D
 agentscope audit https://github.com/eightman999/autoresearch-naval
 ```
 
-監査対象のコードは実行しません。浅いread-only snapshot、許可済みGit参照、公開GitHub metadata、内蔵local modelを使います。
+監査対象のコードは実行しません。浅いread-only snapshot、許可済みGit参照、公開GitHub metadata、内蔵local modelを使います。Python runtimeはlocal/import call graphと限定的なdata-flowを跨いで追跡し、graph builderやtool executorの明示配線もruntime pathとして検査します。
 
 出力先は`~/Library/Application Support/AgentScope/runs/`です。各runに次を保存します。
 

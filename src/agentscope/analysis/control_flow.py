@@ -9,6 +9,7 @@ import re
 
 from agentscope.acquisition.git_snapshot import Snapshot
 from agentscope.analysis.inventory import Inventory
+from agentscope.analysis.path_priority import is_runtime_path, runtime_path_priority
 from agentscope.analysis.search import SearchHit
 from agentscope.domain.evidence import EvidenceLedger
 from agentscope.domain.facts import FactGraph
@@ -686,53 +687,6 @@ def _python_functions(tree: ast.Module) -> list[ast.FunctionDef | ast.AsyncFunct
     )
 
 
-def runtime_path_priority(path: str) -> int:
-    """runtime本体をtests/examplesより先に見るための決定論的な順位。"""
-
-    normalized = path.replace("\\", "/").strip("/").lower()
-    parts = set(normalized.split("/"))
-    name = Path(normalized).name
-    score = 0
-
-    # 説明・検証用コードは、runtime本体の同名サンプルより後ろに置く。
-    if "tests" in parts or name.startswith("test_") or name.endswith("_test.py"):
-        score -= 180
-    if parts & {"examples", "example", "samples", "sample", "demos", "demo"}:
-        score -= 130
-    if parts & {"docs", "doc", "notebooks", "benchmark", "benchmarks", "fixtures"}:
-        score -= 100
-    if ".github" in parts:
-        score -= 80
-
-    # 一般的なpackage layoutと、agent runtimeを表すファイル名を優先する。
-    if "src" in parts:
-        score += 120
-    if "packages" in parts or "lib" in parts:
-        score += 80
-    if parts & {
-        "agent",
-        "agents",
-        "runtime",
-        "executor",
-        "executors",
-        "graph",
-        "graphs",
-        "workflow",
-        "workflows",
-        "loop",
-        "loops",
-        "tool",
-        "tools",
-        "model",
-        "models",
-        "llm",
-    }:
-        score += 35
-    if re.search(r"(?:agent|executor|runtime|graph|workflow|loop|tool|model|llm)", name):
-        score += 20
-    return score
-
-
 def rank_code_records(records: list[object]) -> list[object]:
     """FileRecord相当のpathを持つrecordをruntime優先で安定ソートする。"""
 
@@ -756,6 +710,7 @@ def trace_call_graph(
         record
         for record in inventory.files
         if record.language in {"python", "javascript", "typescript", "rust", "go", "java", "kotlin", "swift"}
+        and (target_path is not None or is_runtime_path(record.path))
     ]
     if target_path:
         code_records = [record for record in code_records if record.path == target_path]
@@ -822,6 +777,20 @@ def trace_call_graph(
                 )
         if len(graph.nodes) > before:
             result.matched_files.append(record.path)
+    from agentscope.analysis.interprocedural import trace_python_interprocedural
+
+    interprocedural_paths = trace_python_interprocedural(
+        snapshot,
+        inventory.files,
+        ledger,
+        graph,
+        commit_sha=commit_sha,
+        uncertainties=result.uncertainties,
+        target_path=target_path,
+    )
+    for path in sorted(interprocedural_paths):
+        if path not in result.matched_files:
+            result.matched_files.append(path)
     if result.uncertainties:
         result.coverage = "partial"
     return result

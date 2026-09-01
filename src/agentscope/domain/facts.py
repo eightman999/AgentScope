@@ -90,6 +90,26 @@ class FactGraph:
     def has_edge_kind(self, *kinds: str) -> bool:
         return any(edge.kind in kinds for edge in self.edges)
 
+    def has_ordered_edge_path(self, *kinds: str) -> bool:
+        """指定された順序のedgeが同じmodel起点の経路に存在するか調べる。"""
+
+        if not kinds:
+            return False
+        frontier = {
+            node.id for node in self.nodes.values() if node.kind in {"model_call", "model_output"}
+        }
+        if not frontier:
+            return False
+        for expected_kind in kinds:
+            next_frontier: set[str] = set()
+            for edge in self.edges:
+                if edge.source in frontier and edge.kind == expected_kind:
+                    next_frontier.add(edge.target)
+            if not next_frontier:
+                return False
+            frontier = next_frontier
+        return True
+
     def edge_evidence(self, *kinds: str) -> list[str]:
         result: list[str] = []
         for edge in self.edges:
@@ -109,4 +129,3 @@ class FactGraph:
             "nodes": [node.to_dict() for node in self.nodes.values()],
             "edges": [edge.to_dict() for edge in self.edges],
         }
-

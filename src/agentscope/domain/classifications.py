@@ -113,12 +113,8 @@ def calculate_classifications(
         ai = ("unknown", "unknown", "Git provenance was unavailable or incomplete.")
     result.append(Classification("ai_assisted_development", ai[0], ai[1], ai[2], ai_ids))
 
-    has_agent_path = (
-        graph.has_node_kind("model_call")
-        and graph.has_edge_kind("controls")
-        and graph.has_edge_kind("dispatches")
-        and graph.has_edge_kind("observes")
-        and graph.has_edge_kind("replans")
+    has_agent_path = graph.has_ordered_edge_path(
+        "controls", "dispatches", "observes", "replans"
     )
     agent_ids = list(
         dict.fromkeys(

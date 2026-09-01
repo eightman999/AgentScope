@@ -2,9 +2,9 @@
 
 - 正典: /Users/eightman/dev/apps/AgentScope/spec.md
 - 運用: spec.mdを唯一の正典とし、このファイルは実行順とチェック項目だけを持つ派生計画とする。
-- 状態: P0主要実装・P1先行精度改善・redirect拒否検証・subprocess監視・Unknown伝播・release bundle / clean environment 検証済み
+- 状態: P0主要実装・P1先行精度改善・interprocedural / runtime優先追跡・redirect拒否検証・subprocess監視・Unknown伝播・release bundle / clean environment 検証済み
 - 対象: P0 + P1先行のcontrol-flow精度改善
-- 最終確認: 2026-09-02。37テスト、redirect実地拒否、adversarial negative fixture、subprocess監視、Unknown伝播、target実モデルsmoke、self-audit、同一snapshot再現性、package build、bundle hash/署名、clean environment demoを実測。
+- 最終確認: 2026-09-02。57テスト、redirect実地拒否、adversarial negative fixture、subprocess監視、Unknown伝播、target実モデルsmoke、self-audit、同一snapshot再現性、package build、bundle hash/署名、clean environment demoを実測。
 
 ## 0. 実装方針
 
@@ -210,6 +210,22 @@ Phase gate:
 Phase gate:
 
 - [x] adversarial negative fixtureがfull auditでも`Agentic runtime=No`、`Agenticity=2.0`になる。
+
+### P1先行: interprocedural / framework runtime tracing
+
+実在frameworkでmodel call、action、tool executor、observation、replanが別module・別抽象化層へ分散する問題を対象にする。
+
+- [x] inventoryのfile/byte budget適用前にruntime pathを優先し、tests/examples/templatesで本体が押し出されないようにする。
+- [x] Pythonのlocal/import callを固定indexで解決し、関数境界を越えてmodel-derived valueを追跡する。
+- [x] dict/listのsubscript、`values()`等のcontainer projection、loopを越えてmodel-derived actionを追跡する。
+- [x] graph builderのnode登録、conditional route、tool node、entrypoint回帰を明示配線として抽出する。
+- [x] disconnected edgeを寄せ集めず、同一model起点のordered pathだけをscore/classificationへ渡す。
+- [x] `cross_file_agent`、`graph_executor_agent`を追加し、既存negative fixtureを維持する。
+
+検証:
+
+- [x] AutoGen、CrewAI、smolagents、Pydantic AI、LangGraphの固定snapshotでruntime path候補を再現する。
+- [x] fixture・既存suiteを含む57テスト、compile、diff checkを通す。
 
 ### Phase 6: P0 demo・release
 

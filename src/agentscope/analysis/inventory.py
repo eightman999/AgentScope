@@ -8,6 +8,7 @@ from pathlib import Path
 import os
 
 from agentscope.acquisition.git_snapshot import Snapshot, SnapshotLimits
+from agentscope.analysis.path_priority import runtime_path_priority
 from agentscope.domain.evidence import normalize_relative_path
 
 
@@ -85,6 +86,7 @@ def build_inventory(snapshot: Snapshot, limits: SnapshotLimits | None = None) ->
     skipped: list[FileRecord] = []
     total_bytes = 0
     root = snapshot.root.resolve()
+    candidates: list[tuple[Path, str]] = []
     for current, dirnames, filenames in os.walk(root, followlinks=False):
         current_path = Path(current)
         dirnames[:] = sorted(
@@ -96,52 +98,56 @@ def build_inventory(snapshot: Snapshot, limits: SnapshotLimits | None = None) ->
         for filename in sorted(filenames):
             path = current_path / filename
             relative = path.relative_to(root).as_posix()
-            try:
-                relative = normalize_relative_path(relative)
-                stat = path.lstat()
-            except (OSError, ValueError):
-                skipped.append(
-                    FileRecord(relative, 0, language_for(relative), False, "unreadable path")
-                )
-                continue
-            if path.is_symlink():
-                skipped.append(
-                    FileRecord(relative, stat.st_size, language_for(relative), False, "symlink")
-                )
-                continue
-            if len(files) + len(skipped) >= limits.max_files:
-                skipped.append(
-                    FileRecord(relative, stat.st_size, language_for(relative), False, "file limit")
-                )
-                continue
-            if stat.st_size > limits.max_file_bytes:
-                skipped.append(
-                    FileRecord(relative, stat.st_size, language_for(relative), False, "file too large")
-                )
-                continue
-            if total_bytes + stat.st_size > limits.max_total_bytes:
-                skipped.append(
-                    FileRecord(relative, stat.st_size, language_for(relative), False, "total size limit")
-                )
-                continue
-            try:
-                path.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
-                skipped.append(
-                    FileRecord(relative, stat.st_size, language_for(relative), False, "malformed utf-8")
-                )
-                continue
-            except OSError:
-                skipped.append(
-                    FileRecord(relative, stat.st_size, language_for(relative), False, "unreadable")
-                )
-                continue
-            if _is_binary(path):
-                skipped.append(
-                    FileRecord(relative, stat.st_size, language_for(relative), False, "binary")
-                )
-                continue
-            files.append(FileRecord(relative, stat.st_size, language_for(relative)))
-            total_bytes += stat.st_size
+            candidates.append((path, relative))
+
+    candidates.sort(key=lambda item: (-runtime_path_priority(item[1]), item[1]))
+    for path, relative in candidates:
+        try:
+            relative = normalize_relative_path(relative)
+            stat = path.lstat()
+        except (OSError, ValueError):
+            skipped.append(
+                FileRecord(relative, 0, language_for(relative), False, "unreadable path")
+            )
+            continue
+        if path.is_symlink():
+            skipped.append(
+                FileRecord(relative, stat.st_size, language_for(relative), False, "symlink")
+            )
+            continue
+        if len(files) + len(skipped) >= limits.max_files:
+            skipped.append(
+                FileRecord(relative, stat.st_size, language_for(relative), False, "file limit")
+            )
+            continue
+        if stat.st_size > limits.max_file_bytes:
+            skipped.append(
+                FileRecord(relative, stat.st_size, language_for(relative), False, "file too large")
+            )
+            continue
+        if total_bytes + stat.st_size > limits.max_total_bytes:
+            skipped.append(
+                FileRecord(relative, stat.st_size, language_for(relative), False, "total size limit")
+            )
+            continue
+        try:
+            path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            skipped.append(
+                FileRecord(relative, stat.st_size, language_for(relative), False, "malformed utf-8")
+            )
+            continue
+        except OSError:
+            skipped.append(
+                FileRecord(relative, stat.st_size, language_for(relative), False, "unreadable")
+            )
+            continue
+        if _is_binary(path):
+            skipped.append(
+                FileRecord(relative, stat.st_size, language_for(relative), False, "binary")
+            )
+            continue
+        files.append(FileRecord(relative, stat.st_size, language_for(relative)))
+        total_bytes += stat.st_size
     coverage = "full" if not skipped else "partial"
     return Inventory(files=files, skipped=skipped, total_bytes=total_bytes, coverage=coverage)

@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from agentscope.acquisition.artifacts import ArtifactStore
-from agentscope.acquisition.git_snapshot import local_snapshot
+from agentscope.acquisition.git_snapshot import SnapshotLimits, local_snapshot
 from agentscope.analysis.control_flow import rank_code_records, trace_call_graph
 from agentscope.analysis.inventory import FileRecord, build_inventory
 from agentscope.analysis.search import search_code
@@ -29,6 +29,21 @@ class StaticAnalysisTests(unittest.TestCase):
             [record.path for record in ranked],
             ["src/runtime/agent.py", "examples/agent.py", "tests/test_agent.py"],
         )
+
+    def test_inventory_budget_prefers_runtime_before_total_size_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "docs").mkdir()
+            (root / "src" / "runtime").mkdir(parents=True)
+            (root / "docs" / "readme.md").write_text("d" * 20, encoding="utf-8")
+            (root / "src" / "runtime" / "agent.py").write_text("x" * 20, encoding="utf-8")
+
+            inventory = build_inventory(
+                local_snapshot(root, commit_sha="fixture-sha"),
+                SnapshotLimits(max_total_bytes=25),
+            )
+
+            self.assertEqual([record.path for record in inventory.files], ["src/runtime/agent.py"])
 
     def test_dynamic_trace_uses_real_source_line_numbers(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -54,6 +69,55 @@ class StaticAnalysisTests(unittest.TestCase):
             for evidence in ledger.all():
                 if evidence.file == "agent.py":
                     self.assertEqual(source_lines[evidence.start_line - 1], evidence.excerpt)
+
+    def test_cross_file_trace_follows_model_value_through_helpers(self) -> None:
+        snapshot = local_snapshot(fixture("cross_file_agent"), commit_sha="fixture-sha")
+        inventory = build_inventory(snapshot)
+        ledger = EvidenceLedger()
+        graph = FactGraph()
+
+        result = trace_call_graph(snapshot, inventory, ledger, graph, commit_sha="fixture-sha")
+
+        self.assertIn("runner.py", result.matched_files)
+        self.assertTrue(graph.has_edge_kind("calls"))
+        self.assertTrue(graph.has_ordered_edge_path("controls", "dispatches", "observes", "replans"))
+        self.assertEqual(result.coverage, "full")
+
+    def test_graph_executor_contract_connects_registered_nodes(self) -> None:
+        snapshot = local_snapshot(fixture("graph_executor_agent"), commit_sha="fixture-sha")
+        inventory = build_inventory(snapshot)
+        ledger = EvidenceLedger()
+        graph = FactGraph()
+
+        trace_call_graph(snapshot, inventory, ledger, graph, commit_sha="fixture-sha")
+
+        self.assertTrue(graph.has_ordered_edge_path("controls", "dispatches", "observes", "replans"))
+        contract_evidence = [
+            evidence
+            for evidence in ledger.all()
+            if evidence.claim_key.startswith("trace.framework_")
+        ]
+        self.assertTrue(contract_evidence)
+        self.assertTrue(
+            all(evidence.display_ref.startswith("runtime.py:") for evidence in contract_evidence)
+        )
+
+    def test_ordered_path_does_not_combine_disconnected_edges(self) -> None:
+        graph = FactGraph()
+        graph.add_node(node_id="model:a", kind="model_output", label="model", evidence_ids=[])
+        graph.add_node(node_id="selector:a", kind="action_selector", label="selector", evidence_ids=[])
+        graph.add_node(node_id="selector:b", kind="action_selector", label="selector", evidence_ids=[])
+        graph.add_node(node_id="dispatcher:b", kind="dispatcher", label="dispatcher", evidence_ids=[])
+        graph.add_node(node_id="observation:b", kind="observation", label="observation", evidence_ids=[])
+        graph.add_node(node_id="replanner:b", kind="replanner", label="replanner", evidence_ids=[])
+        graph.add_edge(source="model:a", target="selector:a", kind="controls", evidence_ids=[])
+        graph.add_edge(source="selector:b", target="dispatcher:b", kind="dispatches", evidence_ids=[])
+        graph.add_edge(source="dispatcher:b", target="observation:b", kind="observes", evidence_ids=[])
+        graph.add_edge(source="observation:b", target="replanner:b", kind="replans", evidence_ids=[])
+
+        self.assertFalse(
+            graph.has_ordered_edge_path("controls", "dispatches", "observes", "replans")
+        )
 
     def test_fixed_workflow_has_model_candidate_but_no_runtime_edges(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
