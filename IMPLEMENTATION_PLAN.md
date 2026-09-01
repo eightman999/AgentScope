@@ -4,7 +4,7 @@
 - 運用: spec.mdを唯一の正典とし、このファイルは実行順とチェック項目だけを持つ派生計画とする。
 - 状態: P0主要実装・P1先行精度改善・redirect拒否検証・subprocess監視・Unknown伝播・release bundle / clean environment 検証済み
 - 対象: P0 + P1先行のcontrol-flow精度改善
-- 最終確認: 2026-09-02。36テスト、redirect実地拒否、adversarial negative fixture、subprocess監視、Unknown伝播、target実モデルsmoke、self-audit、同一snapshot再現性、package build、bundle hash/署名、clean environment demoを実測。
+- 最終確認: 2026-09-02。37テスト、redirect実地拒否、adversarial negative fixture、subprocess監視、Unknown伝播、target実モデルsmoke、self-audit、同一snapshot再現性、package build、bundle hash/署名、clean environment demoを実測。
 
 ## 0. 実装方針
 
