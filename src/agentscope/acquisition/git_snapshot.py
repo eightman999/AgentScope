@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-from typing import Sequence
+from typing import Callable, Sequence
 
 from agentscope.acquisition.github_url import GitHubRepoRef
 
@@ -82,17 +82,27 @@ def run_git(
 
 
 class GitSnapshotSource:
-    def __init__(self, *, limits: SnapshotLimits | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        limits: SnapshotLimits | None = None,
+        runner: Callable[..., object] = run_git,
+    ) -> None:
         self.limits = limits or SnapshotLimits()
+        self.runner = runner
 
     def acquire(self, ref: GitHubRepoRef, destination: Path) -> Snapshot:
         if destination.exists():
             raise AcquisitionError("snapshot destination already exists")
         destination.parent.mkdir(parents=True, exist_ok=True)
-        result = run_git(
+        # Gitのredirect先hostは、git subprocessの内部で追従されると
+        # allowlistを検査できない。redirectを全拒否してfail-closedにする。
+        result = self.runner(
             [
                 "git",
                 "clone",
+                "-c",
+                "http.followRedirects=false",
                 "--depth",
                 "1",
                 "--no-tags",
@@ -104,7 +114,7 @@ class GitSnapshotSource:
         )
         if result.returncode != 0:
             raise AcquisitionError(result.stderr.strip() or "git clone failed")
-        sha_result = run_git(["git", "rev-parse", "HEAD"], cwd=destination)
+        sha_result = self.runner(["git", "rev-parse", "HEAD"], cwd=destination)
         if sha_result.returncode != 0:
             raise AcquisitionError("could not resolve snapshot commit")
         sha = sha_result.stdout.strip()
