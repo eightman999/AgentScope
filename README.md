@@ -31,4 +31,18 @@ PYTHONPATH=src python3 -m unittest discover -s tests -v
 
 P0のlocal modelはQwen3-0.6B GGUFとllama.cppを使います。model weightはGitの通常差分へ含めず、`resources/model-manifest.json`のURL・サイズ・SHA-256で検証します。配布時はrelease bundleが必要です。
 
+## Release bundle
+
+macOS arm64向けbundleは、wheel、Qwen GGUF、llama.cpp実行ファイルと必要なdylib、manifest、LICENSEをchecksum付きで生成します。model weightはGitへ追加されません。
+
+```sh
+build_dir="$(mktemp -d)"
+uv build --out-dir "$build_dir" --no-sources
+python3 scripts/build_release_bundle.py \
+  --output "./agentscope-0.1.0-macos-arm64" \
+  --wheel "$build_dir/agentscope-0.1.0-py3-none-any.whl"
+```
+
+生成後はbundle内のwheelをcleanなPython環境へinstallし、`run.sh audit <GitHub URL>`を実行します。
+
 仕様の正典は[`spec.md`](spec.md)、実行順は[`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md)です。

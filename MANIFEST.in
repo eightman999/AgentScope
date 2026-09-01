@@ -1,0 +1,5 @@
+include LICENSE
+include README.md
+include resources/*.json
+include resources/*.gbnf
+include scripts/build_release_bundle.py

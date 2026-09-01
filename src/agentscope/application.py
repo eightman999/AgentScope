@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -62,6 +63,11 @@ def _optional_sha256(path: Path) -> str | None:
 
 def _resource_root() -> Path:
     source_root = Path(__file__).resolve().parents[2]
+    configured_root = os.environ.get("AGENTSCOPE_RESOURCE_ROOT")
+    if configured_root:
+        configured = Path(configured_root).expanduser().resolve()
+        if configured.is_dir():
+            return configured
     candidates = (
         source_root / "resources",
         Path(sys.prefix) / "share" / "agentscope" / "resources",
@@ -82,12 +88,17 @@ def _runtime_version(binary_path: str) -> str:
             stderr=subprocess.STDOUT,
             text=True,
             check=False,
-            timeout=5,
+            timeout=30,
         )
     except (OSError, subprocess.TimeoutExpired):
         return "unknown"
-    first_line = result.stdout.strip().splitlines()
-    return first_line[0][:500] if result.returncode == 0 and first_line else "unknown"
+    lines = result.stdout.strip().splitlines()
+    if result.returncode != 0 or not lines:
+        return "unknown"
+    for line in lines:
+        if line.lower().startswith("version:"):
+            return line[:500]
+    return lines[0][:500]
 
 
 def _model_provider(resource_root: Path) -> tuple[ModelProvider, str, str | None, str, str]:
