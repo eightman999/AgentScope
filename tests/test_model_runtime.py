@@ -38,15 +38,22 @@ class ModelRuntimeTests(unittest.TestCase):
                 binary_path="llama-cli",
                 tool_grammar_path=resource_root / "tool-action-grammar.gbnf",
             )
-            readme_grammar = provider._filtered_tool_grammar(["readme"])
+            readme_grammar = provider._filtered_tool_grammar(
+                ["readme"], readable_paths=["README.md", "src/main.py"]
+            )
             self.assertIn("toolcall ::= toolplain | toolread | toolsearch", readme_grammar)
-            self.assertIn('readargs ::= "{" ws "\\\"path\\\"" ws ":" ws string ws "}"', readme_grammar)
+            self.assertIn('readargs ::= "{" ws "\\\"path\\\"" ws ":" ws pathvalue ws "}"', readme_grammar)
             self.assertIn('plainname ::= "\\\"list_repo_tree\\\""', readme_grammar)
+            self.assertIn('pathvalue ::= "\\\"README.md\\\""', readme_grammar)
+            self.assertNotIn('pathvalue ::= "\\\"unknown\\\""', readme_grammar)
             readme_after_inventory = provider._filtered_tool_grammar(
-                ["readme"], include_list_repo_tree=False
+                ["readme"],
+                include_list_repo_tree=False,
+                readable_paths=["README.md", "src/main.py"],
             )
             self.assertIn("toolcall ::= toolread | toolsearch", readme_after_inventory)
             self.assertNotIn('"list_repo_tree"', readme_after_inventory)
+            self.assertIn('"\\\"src/main.py\\\""', readme_after_inventory)
 
             llm_grammar = provider._filtered_tool_grammar(["llm_calls"])
             self.assertIn("toolcall ::= toolplain", llm_grammar)

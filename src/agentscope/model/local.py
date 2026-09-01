@@ -14,6 +14,11 @@ from agentscope.model.manifest import ModelManifest
 from agentscope.model.provider import ModelContext, ModelProviderError
 
 
+def _gbnf_json_string(value: str) -> str:
+    encoded = json.dumps(value, ensure_ascii=False)
+    return '"' + encoded.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 class LocalLlamaCppProvider:
     def __init__(
         self,
@@ -79,6 +84,7 @@ class LocalLlamaCppProvider:
             inline_grammar = self._filtered_tool_grammar(
                 missing_capabilities,
                 include_list_repo_tree=not inventory_seen,
+                readable_paths=context.state.get("readable_paths"),
             )
             selected_grammar = None
         elif self.finish_grammar_path and not missing_capabilities:
@@ -136,6 +142,7 @@ class LocalLlamaCppProvider:
         missing_capabilities: object,
         *,
         include_list_repo_tree: bool = True,
+        readable_paths: object = None,
     ) -> str:
         if not self.tool_grammar_path or not self.tool_grammar_path.is_file():
             raise ModelProviderError("tool action grammar could not be read")
@@ -196,4 +203,26 @@ class LocalLlamaCppProvider:
             )
             if plain_count != 1:
                 raise ModelProviderError("tool grammar did not contain plainname rule")
+        if isinstance(readable_paths, list):
+            paths = [
+                item
+                for item in readable_paths[:120]
+                if isinstance(item, str) and item and "\n" not in item
+            ]
+            if paths:
+                path_literals = " | ".join(
+                    _gbnf_json_string(path)
+                    for path in paths
+                )
+                grammar, path_count = re.subn(
+                    r"^readargs ::= .*?$",
+                    'readargs ::= "{" ws "\\\"path\\\"" ws ":" ws pathvalue ws "}"\n'
+                    + "pathvalue ::= "
+                    + path_literals,
+                    grammar,
+                    count=1,
+                    flags=re.MULTILINE,
+                )
+                if path_count != 1:
+                    raise ModelProviderError("tool grammar did not contain readargs rule")
         return grammar

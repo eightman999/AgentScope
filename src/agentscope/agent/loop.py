@@ -49,6 +49,7 @@ class AgentLoop:
         facts["missing_capabilities"] = missing_capabilities(self.context.facts)
         state = self.context.state.to_dict()
         state["missing_capabilities"] = facts["missing_capabilities"]
+        state["readable_paths"] = self.context.inventory.paths()[:120]
         model_context = build_model_context(
             state=state,
             tool_catalog=self.registry.catalog(),
