@@ -180,6 +180,18 @@ class StaticAnalysisTests(unittest.TestCase):
             self.assertFalse(is_runtime_path("Code/{{PROJECT}}-docs/scripts/doctor.sh"))
             self.assertEqual(result.hits, [])
 
+    def test_tooling_detector_ignores_dispatcher_word_in_output_string(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "doctor.sh"
+            script.write_text('echo "dispatcher is missing"\n', encoding="utf-8")
+            snapshot = local_snapshot(root, commit_sha="fixture-sha")
+            inventory = build_inventory(snapshot)
+
+            result = detect(snapshot, inventory, "tooling")
+
+            self.assertEqual(result.hits, [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -45,7 +45,6 @@ PATTERNS: dict[str, list[str]] = {
         "register_tool",
         "add_tool",
         "@tool",
-        "dispatcher",
         "dispatch(",
         "tool_registry",
         "tools=",
