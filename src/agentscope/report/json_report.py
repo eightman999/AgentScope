@@ -22,6 +22,7 @@ def build_report(
     model_sha256: str | None,
     engine: str,
     snapshot_coverage: str,
+    runtime_version: str | None = None,
     runtime_error: str | None = None,
 ) -> dict[str, Any]:
     return {
@@ -36,6 +37,7 @@ def build_report(
             "model_id": model_id,
             "model_sha256": model_sha256,
             "engine": engine,
+            "runtime_version": runtime_version,
             "steps_used": len(state.action_history),
             "termination": state.termination,
             "status": state.status,
@@ -57,4 +59,3 @@ def build_report(
         "action_trace_ref": "audit_trace.jsonl",
         "fact_graph": graph.to_dict(),
     }
-

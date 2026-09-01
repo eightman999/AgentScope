@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import sys
 import uuid
 from typing import Any, Callable
@@ -71,7 +72,24 @@ def _resource_root() -> Path:
     return candidates[0]
 
 
-def _model_provider(resource_root: Path) -> tuple[ModelProvider, str, str | None, str]:
+def _runtime_version(binary_path: str) -> str:
+    try:
+        result = subprocess.run(
+            [binary_path, "--version"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return "unknown"
+    first_line = result.stdout.strip().splitlines()
+    return first_line[0][:500] if result.returncode == 0 and first_line else "unknown"
+
+
+def _model_provider(resource_root: Path) -> tuple[ModelProvider, str, str | None, str, str]:
     manifest = load_manifest(resource_root / "model-manifest.json")
     model_path = resource_root / "models" / manifest.artifact
     schema_path = resource_root / "action-schema.json"
@@ -88,7 +106,13 @@ def _model_provider(resource_root: Path) -> tuple[ModelProvider, str, str | None
         raise ModelProviderError("local model size does not match the manifest")
     if manifest.model_sha256 and manifest.model_sha256.lower() != model_sha256:
         raise ModelProviderError("local model checksum does not match the manifest")
-    return provider, manifest.model_id, model_sha256, manifest.runtime
+    return (
+        provider,
+        manifest.model_id,
+        model_sha256,
+        manifest.runtime,
+        _runtime_version(provider.binary_path),
+    )
 
 
 def _run_id(ref: GitHubRepoRef) -> str:
@@ -157,6 +181,7 @@ def audit_snapshot(
     model_id: str = "mock",
     model_sha256: str | None = None,
     engine: str = "mock",
+    runtime_version: str | None = None,
     git_runner: Callable[..., object] | None = None,
 ) -> AuditResult:
     limits = limits or SnapshotLimits()
@@ -191,6 +216,7 @@ def audit_snapshot(
                 "model_id": model_id,
                 "model_sha256": model_sha256,
                 "engine": engine,
+                "runtime_version": runtime_version,
             },
         },
     )
@@ -225,6 +251,7 @@ def audit_snapshot(
         model_id=model_id,
         model_sha256=model_sha256,
         engine=engine,
+        runtime_version=runtime_version,
         snapshot_coverage=snapshot.coverage,
     )
     lint_report(
@@ -249,7 +276,7 @@ def audit_url(
     artifacts = ArtifactStore.create(base, _run_id(ref))
     snapshot_destination = artifacts.root / "snapshot"
     snapshot = GitSnapshotSource(limits=limits).acquire(ref, snapshot_destination)
-    provider, model_id, model_sha256, engine = _model_provider(_resource_root())
+    provider, model_id, model_sha256, engine, runtime_version = _model_provider(_resource_root())
     return audit_snapshot(
         raw_url=raw_url,
         ref=ref,
@@ -261,6 +288,7 @@ def audit_url(
         model_id=model_id,
         model_sha256=model_sha256,
         engine=engine,
+        runtime_version=runtime_version,
     )
 
 
@@ -276,6 +304,7 @@ def audit_local_directory(
     model_id: str = "mock",
     model_sha256: str | None = None,
     engine: str = "mock",
+    runtime_version: str | None = None,
     git_runner: Callable[..., object] | None = None,
 ) -> AuditResult:
     ref = parse_github_url(raw_url)
@@ -292,5 +321,6 @@ def audit_local_directory(
         model_id=model_id,
         model_sha256=model_sha256,
         engine=engine,
+        runtime_version=runtime_version,
         git_runner=git_runner,
     )
